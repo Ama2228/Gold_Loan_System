@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { ChevronDown, LogOut } from 'lucide-react'
 
-const navItems = [
+const staffNavItems = [
   {
     label: 'Transactions',
     submenu: [
@@ -48,10 +48,107 @@ const navItems = [
   }
 ]
 
+const managerNavItems = [
+  {
+    label: 'Transactions',
+    submenu: [
+      { label: 'New Ticket', path: '/staff/transactions/new' },
+      { label: 'Renewal', path: '/staff/transactions/renewal' },
+      { label: 'Redemption', path: '/staff/transactions/redemption' },
+      { label: 'Part Payment', path: '/staff/transactions/part-payment' }
+    ]
+  },
+  {
+    label: 'Customers',
+    submenu: [
+      { label: 'Register Customer', path: '/staff/customers/register' },
+      { label: 'Customer Inquiry', path: '/staff/customers/inquiry' }
+    ]
+  },
+  {
+    label: 'Tickets',
+    submenu: [
+      { label: 'Auction List', path: '/staff/tickets/auction' },
+      { label: 'Expired List', path: '/staff/tickets/expired' },
+      { label: 'Ticket Inquiry', path: '/staff/tickets/inquiry' }
+    ]
+  },
+  {
+    label: 'Reminders',
+    submenu: [
+      { label: 'Reminder Status', path: '/staff/reminders/status' }
+    ]
+  },
+  {
+    label: 'Appointments',
+    submenu: [
+      { label: 'Appointment List', path: '/staff/appointments/list' }
+    ]
+  },
+  {
+    label: 'Reverse Pawning',
+    submenu: [
+      { label: 'Manage Requests', path: '/manager/reverse-pawning' }
+    ]
+  },
+  {
+    label: 'Reports',
+    submenu: [
+      { label: 'Monthly Reports', path: '/staff/reports/monthly' },
+      { label: 'Daily Reports', path: '/staff/reports/daily' }
+    ]
+  }
+]
+
+const adminNavItems = [
+  {
+    label: 'Dashboard',
+    submenu: [
+      { label: 'Overview', path: '/admin/dashboard' }
+    ]
+  },
+  {
+    label: 'Staff Management',
+    submenu: [
+      { label: 'Manage Staff', path: '/admin/staff' }
+    ]
+  },
+  {
+    label: 'Branch Management',
+    submenu: [
+      { label: 'Manage Branches', path: '/admin/branches' }
+    ]
+  },
+  {
+    label: 'Opening Hours',
+    submenu: [
+      { label: 'Manage Hours', path: '/admin/opening-hours' }
+    ]
+  },
+  {
+    label: 'System Settings',
+    submenu: [
+      { label: 'Manage Settings', path: '/admin/settings' }
+    ]
+  },
+  {
+    label: 'Reports',
+    submenu: [
+      { label: 'View Reports', path: '/admin/reports' }
+    ]
+  }
+]
+
 export default function DashboardLayout() {
   const navigate = useNavigate()
+  const userRole = sessionStorage.getItem('userRole') || 'STAFF'
+  
+  // Use different nav items based on role
+  const navItems = userRole === 'ADMIN' ? adminNavItems : userRole === 'MANAGER' ? managerNavItems : staffNavItems
 
   const handleLogout = () => {
+    sessionStorage.removeItem('userRole')
+    sessionStorage.removeItem('userNic')
     navigate('/login')
   }
 
@@ -113,7 +210,7 @@ export default function DashboardLayout() {
                 </div>
                 <div className="hidden sm:block">
                   <p className="text-sm font-semibold text-black">Hasindu N.</p>
-                  <p className="text-xs text-black/70">User</p>
+                  <p className="text-xs text-black/70">{userRole}</p>
                 </div>
               </div>
               <button

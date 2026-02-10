@@ -13,6 +13,11 @@ const MANAGER_CREDENTIALS = {
   password: 'Manager@123'
 }
 
+const ADMIN_CREDENTIALS = {
+  nic: '200263000105',
+  password: 'Dewama.952'
+}
+
 export default function Login() {
   const navigate = useNavigate()
   const [nic, setNic] = useState('')
@@ -46,8 +51,14 @@ export default function Login() {
         sessionStorage.setItem('userNic', nic)
         // Redirect to role selection portal
         navigate('/login-as')
+      } else if (nic === ADMIN_CREDENTIALS.nic && password === ADMIN_CREDENTIALS.password) {
+        // Store role as ADMIN
+        sessionStorage.setItem('userRole', 'ADMIN')
+        sessionStorage.setItem('userNic', nic)
+        // Redirect directly to admin dashboard
+        navigate('/admin/dashboard')
       } else {
-        setError('Invalid NIC or password. For testing, use NIC: 199978901234, Password: Staff@123 OR NIC: 199911223344, Password: Manager@123')
+        setError('Invalid NIC or password. Check info box below for test credentials.')
         setIsLoading(false)
       }
     }, 1000)
@@ -165,7 +176,8 @@ export default function Login() {
           <p className="text-sm text-yellow-50">
             <strong>Test Credentials:</strong><br />
             Staff - NIC: 199978901234, Password: Staff@123<br />
-            Manager - NIC: 199911223344, Password: Manager@123
+            Manager - NIC: 199911223344, Password: Manager@123<br />
+            Admin - NIC: 200263000105, Password: Dewama.952
           </p>
         </div>
       </div>

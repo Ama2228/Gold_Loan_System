@@ -24,7 +24,14 @@ import Reminders from './pages/staff/Reminders.jsx'
 import Appointments from './pages/staff/Appointments.jsx'
 import Reports from './pages/staff/Reports.jsx'
 import CustomerDashboard from './pages/customer/CustomerDashboard.jsx'
-import ManagerDashboard from './pages/manager/ManagerDashboard.jsx'
+import ManagerDashboardHome from './pages/manager/ManagerDashboardHome.jsx'
+import ReversePawning from './pages/manager/ReversePawning.jsx'
+import AdminDashboard from './pages/admin/AdminDashboard.jsx'
+import StaffManagement from './pages/admin/StaffManagement.jsx'
+import BranchManagement from './pages/admin/BranchManagement.jsx'
+import OpeningHours from './pages/admin/OpeningHours.jsx'
+import SystemSettings from './pages/admin/SystemSettings.jsx'
+import AdminReports from './pages/admin/AdminReports.jsx'
 
 ReactDOM.createRoot(document.getElementById('app')).render(
   <React.StrictMode>
@@ -69,7 +76,20 @@ ReactDOM.createRoot(document.getElementById('app')).render(
         <Route path="/customer/appointments" element={<CustomerAppointments />} />
         <Route path="/customer/notifications" element={<Notifications />} />
         <Route path="/customer/profile" element={<Profile />} />
-        <Route path="/manager/dashboard" element={<ManagerDashboard />} />
+        <Route path="/manager" element={<DashboardLayout />}>
+          <Route index element={<Navigate to="/manager/dashboard" replace />} />
+          <Route path="dashboard" element={<ManagerDashboardHome />} />
+          <Route path="reverse-pawning" element={<ReversePawning />} />
+        </Route>
+        <Route path="/admin" element={<DashboardLayout />}>
+          <Route index element={<Navigate to="/admin/dashboard" replace />} />
+          <Route path="dashboard" element={<AdminDashboard />} />
+          <Route path="staff" element={<StaffManagement />} />
+          <Route path="branches" element={<BranchManagement />} />
+          <Route path="opening-hours" element={<OpeningHours />} />
+          <Route path="settings" element={<SystemSettings />} />
+          <Route path="reports" element={<AdminReports />} />
+        </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
