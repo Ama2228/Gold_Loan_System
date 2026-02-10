@@ -30,13 +30,14 @@ export default function RegisterCustomer() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-[1400px] mx-auto px-6 py-8 space-y-6">
       <div className="border-b-2 border-yellow-500 pb-4">
         <h1 className="text-3xl font-bold text-yellow-600">New Customer Registration</h1>
+        <p className="mt-2 text-gray-600">Register a new customer in the system</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="max-w-5xl">
-        <div className="space-y-6 bg-white p-8 rounded-lg border border-gray-200">
+      <form onSubmit={handleSubmit} className="max-w-5xl mx-auto">
+        <div className="space-y-6 bg-white p-8 rounded-lg border border-gray-200 shadow-sm">
           <div className="grid gap-6 sm:grid-cols-3">
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">Title (Mr/Mrs/Miss)</label>

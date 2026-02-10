@@ -10,30 +10,32 @@ export default function Reminders() {
   ]
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-[1400px] mx-auto px-6 py-8 space-y-6">
       <div className="border-b-2 border-yellow-500 pb-4">
         <h1 className="text-3xl font-bold text-yellow-600">Reminder Status</h1>
+        <p className="mt-2 text-gray-600">Track customer notification reminders</p>
       </div>
 
       {/* Summary Cards */}
       <div className="grid gap-4 sm:grid-cols-3">
-        <div className="bg-gradient-to-br from-green-50 to-green-100 p-6 rounded-lg border-l-4 border-green-500">
-          <p className="text-sm font-semibold text-green-600 mb-2">Sent Successfully</p>
-          <p className="text-3xl font-bold text-green-800">8</p>
+        <div className="bg-gradient-to-br from-green-50 to-green-100 p-6 rounded-lg border border-green-200 shadow-sm">
+          <p className="text-sm font-semibold text-green-700 mb-2">Sent Successfully</p>
+          <p className="text-3xl font-bold text-green-900">8</p>
         </div>
-        <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-lg border-l-4 border-blue-500">
-          <p className="text-sm font-semibold text-blue-600 mb-2">Delivered</p>
-          <p className="text-3xl font-bold text-blue-800">12</p>
+        <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-lg border border-blue-200 shadow-sm">
+          <p className="text-sm font-semibold text-blue-700 mb-2">Delivered</p>
+          <p className="text-3xl font-bold text-blue-900">12</p>
         </div>
-        <div className="bg-gradient-to-br from-red-50 to-red-100 p-6 rounded-lg border-l-4 border-red-500">
-          <p className="text-sm font-semibold text-red-600 mb-2">Failed</p>
-          <p className="text-3xl font-bold text-red-800">2</p>
+        <div className="bg-gradient-to-br from-red-50 to-red-100 p-6 rounded-lg border border-red-200 shadow-sm">
+          <p className="text-sm font-semibold text-red-700 mb-2">Failed</p>
+          <p className="text-3xl font-bold text-red-900">2</p>
         </div>
       </div>
 
       {/* Reminders Table */}
-      <div className="overflow-x-auto bg-gray-50 p-6 rounded-lg">
-        <table className="w-full text-sm">
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
           <thead>
             <tr className="border-b-2 border-yellow-500">
               <th className="px-4 py-3 text-left font-semibold text-gray-900">Customer</th>
@@ -78,6 +80,7 @@ export default function Reminders() {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   )

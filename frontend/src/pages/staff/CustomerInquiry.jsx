@@ -61,15 +61,16 @@ export default function CustomerInquiry() {
   )
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-[1400px] mx-auto px-6 py-8 space-y-6">
       <div className="border-b-2 border-yellow-500 pb-4">
         <h1 className="text-3xl font-bold text-yellow-600">Customer Inquiry</h1>
+        <p className="mt-2 text-gray-600">Search and view customer information</p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Left - Search & List */}
         <div className="lg:col-span-1">
-          <div className="bg-gray-50 p-6 rounded-lg space-y-4">
+          <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm space-y-4">
             <div className="relative">
               <Search className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
               <input

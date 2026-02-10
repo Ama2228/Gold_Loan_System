@@ -32,16 +32,17 @@ export default function RenewTicket() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-[1400px] mx-auto px-6 py-8 space-y-6">
       <div className="border-b-2 border-yellow-500 pb-4">
         <h1 className="text-3xl font-bold text-yellow-600">Renew Ticket</h1>
+        <p className="mt-2 text-gray-600">Renew existing pawning ticket</p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Left Column */}
         <div className="lg:col-span-2 space-y-6">
-          <div className="bg-white p-6 rounded-lg border border-gray-200">
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Enter Ticket Number</label>
+          <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
+            <label className="block text-sm font-semibold text-gray-700 mb-3">Enter Ticket Number</label>
             <div className="flex flex-wrap gap-3">
               <input
                 type="text"
@@ -56,7 +57,7 @@ export default function RenewTicket() {
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-lg border border-gray-200">
+          <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
             <h2 className="text-lg font-bold text-yellow-600 mb-4">Ticket Details</h2>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">

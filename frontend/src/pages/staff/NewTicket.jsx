@@ -77,17 +77,18 @@ export default function NewTicket() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-[1400px] mx-auto px-6 py-8 space-y-6">
       {/* Header */}
       <div className="border-b-2 border-yellow-500 pb-4">
         <h1 className="text-3xl font-bold text-yellow-600">New Ticket</h1>
+        <p className="mt-2 text-gray-600">Create a new pawning ticket</p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Left Section - Form */}
         <div className="lg:col-span-2 space-y-6">
           {/* Customer Section */}
-          <div className="space-y-4 bg-gray-50 p-6 rounded-lg">
+          <div className="space-y-4 bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
             <div className="grid gap-4 sm:grid-cols-3">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Customer ID Number</label>

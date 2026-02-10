@@ -55,28 +55,29 @@ export default function Appointments() {
   ]
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-[1400px] mx-auto px-6 py-8 space-y-6">
       <div className="border-b-2 border-yellow-500 pb-4">
         <h1 className="text-3xl font-bold text-yellow-600">Appointment List</h1>
+        <p className="mt-2 text-gray-600">Manage customer appointments</p>
       </div>
 
       {/* Summary Cards */}
       <div className="grid gap-4 sm:grid-cols-4">
-        <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-lg border-l-4 border-blue-500">
-          <p className="text-sm font-semibold text-blue-600 mb-2">Total Appointments</p>
-          <p className="text-3xl font-bold text-blue-800">5</p>
+        <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-lg border border-blue-200 shadow-sm">
+          <p className="text-sm font-semibold text-blue-700 mb-2">Total Appointments</p>
+          <p className="text-3xl font-bold text-blue-900">5</p>
         </div>
-        <div className="bg-gradient-to-br from-green-50 to-green-100 p-6 rounded-lg border-l-4 border-green-500">
-          <p className="text-sm font-semibold text-green-600 mb-2">Confirmed</p>
-          <p className="text-3xl font-bold text-green-800">2</p>
+        <div className="bg-gradient-to-br from-green-50 to-green-100 p-6 rounded-lg border border-green-200 shadow-sm">
+          <p className="text-sm font-semibold text-green-700 mb-2">Confirmed</p>
+          <p className="text-3xl font-bold text-green-900">2</p>
         </div>
-        <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 p-6 rounded-lg border-l-4 border-yellow-500">
-          <p className="text-sm font-semibold text-yellow-600 mb-2">Pending</p>
-          <p className="text-3xl font-bold text-yellow-800">2</p>
+        <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 p-6 rounded-lg border border-yellow-200 shadow-sm">
+          <p className="text-sm font-semibold text-yellow-700 mb-2">Pending</p>
+          <p className="text-3xl font-bold text-yellow-900">2</p>
         </div>
-        <div className="bg-gradient-to-br from-red-50 to-red-100 p-6 rounded-lg border-l-4 border-red-500">
-          <p className="text-sm font-semibold text-red-600 mb-2">Cancelled</p>
-          <p className="text-3xl font-bold text-red-800">1</p>
+        <div className="bg-gradient-to-br from-red-50 to-red-100 p-6 rounded-lg border border-red-200 shadow-sm">
+          <p className="text-sm font-semibold text-red-700 mb-2">Cancelled</p>
+          <p className="text-3xl font-bold text-red-900">1</p>
         </div>
       </div>
 
