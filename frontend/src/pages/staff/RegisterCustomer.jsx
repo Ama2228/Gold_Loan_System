@@ -45,7 +45,7 @@ export default function RegisterCustomer() {
                 name="title"
                 value={formData.title}
                 onChange={handleChange}
-                className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                className="w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
               >
                 <option value="">Select Title</option>
                 <option>Mr</option>
@@ -97,7 +97,7 @@ export default function RegisterCustomer() {
                 name="dob"
                 value={formData.dob}
                 onChange={handleChange}
-                className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                className="w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
               />
             </div>
             <div>
@@ -108,7 +108,7 @@ export default function RegisterCustomer() {
                 value={formData.occupation}
                 onChange={handleChange}
                 placeholder="Software Engineer"
-                className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                className="w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
               />
             </div>
           </div>
@@ -122,7 +122,7 @@ export default function RegisterCustomer() {
                 value={formData.address}
                 onChange={handleChange}
                 placeholder="e.g. No. 10, Main Street, Rajagiriya"
-                className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                className="w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
               />
               <label className="mt-3 inline-flex items-center gap-2 text-sm text-gray-600">
                 <input
@@ -141,7 +141,7 @@ export default function RegisterCustomer() {
                 name="district"
                 value={formData.district}
                 onChange={handleChange}
-                className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                className="w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
               >
                 <option value="">Select District</option>
                 <option>Colombo</option>
@@ -160,7 +160,7 @@ export default function RegisterCustomer() {
                 value={formData.phone1}
                 onChange={handleChange}
                 placeholder="077 123 4567"
-                className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                className="w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
               />
             </div>
             <div>
@@ -171,7 +171,7 @@ export default function RegisterCustomer() {
                 value={formData.phone2}
                 onChange={handleChange}
                 placeholder="076 987 6543"
-                className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                className="w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
               />
             </div>
           </div>

@@ -12,7 +12,7 @@ const MonthlyReports = () => (
     <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm flex flex-wrap gap-4 items-end">
       <div>
         <label className="block text-sm font-semibold text-gray-700 mb-2">Select Month</label>
-        <select className="rounded-lg border border-gray-300 px-4 py-2 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500">
+        <select className="rounded-lg border border-gray-300 px-4 py-2 text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500">
           <option>January 2026</option>
           <option>December 2025</option>
           <option>November 2025</option>

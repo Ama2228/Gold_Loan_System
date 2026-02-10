@@ -95,7 +95,7 @@ export default function NewTicket() {
                 <input
                   type="text"
                   placeholder="20012345678"
-                  className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                  className="w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
                 />
               </div>
               <div>
@@ -104,7 +104,7 @@ export default function NewTicket() {
                   name="article"
                   value={currentArticle.article}
                   onChange={handleArticleChange}
-                  className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                  className="w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
                 >
                   <option>General</option>
                   <option>VIP</option>
@@ -113,7 +113,7 @@ export default function NewTicket() {
               </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Period</label>
-                <select className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500">
+                <select className="w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500">
                   <option>6 Months</option>
                   <option>3 Months</option>
                   <option>12 Months</option>
@@ -134,7 +134,7 @@ export default function NewTicket() {
             <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Article</label>
-                <select className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500">
+                <select className="w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500">
                   <option>Chain</option>
                   <option>Ring</option>
                   <option>Bangle</option>
@@ -211,7 +211,7 @@ export default function NewTicket() {
                   name="karatage"
                   value={currentArticle.karatage}
                   onChange={handleArticleChange}
-                  className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                  className="w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
                 >
                   <option>14 K</option>
                   <option>18 K</option>
@@ -225,7 +225,7 @@ export default function NewTicket() {
                   name="adjustKaratage"
                   value={currentArticle.adjustKaratage}
                   onChange={handleArticleChange}
-                  className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                  className="w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
                 >
                   <option>22 K</option>
                   <option>18 K</option>
@@ -237,7 +237,7 @@ export default function NewTicket() {
 
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">Remark</label>
-              <textarea placeholder="Add any remarks..." className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500" rows="3"></textarea>
+              <textarea placeholder="Add any remarks..." className="w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500" rows="3"></textarea>
             </div>
 
             {articleError && (
@@ -304,7 +304,7 @@ export default function NewTicket() {
             </div>
             <div>
               <p className="text-sm font-semibold text-gray-600">Payable Amount</p>
-              <input type="text" placeholder="Enter Amount" className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500" />
+              <input type="text" placeholder="Enter Amount" className="w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500" />
             </div>
           </div>
         </div>

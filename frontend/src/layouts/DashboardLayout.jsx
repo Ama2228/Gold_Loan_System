@@ -5,7 +5,6 @@ import { ChevronDown, LogOut } from 'lucide-react'
 const navItems = [
   {
     label: 'Transactions',
-    icon: '📋',
     submenu: [
       { label: 'New Ticket', path: '/staff/transactions/new' },
       { label: 'Renewal', path: '/staff/transactions/renewal' },
@@ -15,7 +14,6 @@ const navItems = [
   },
   {
     label: 'Customers',
-    icon: '👥',
     submenu: [
       { label: 'Register Customer', path: '/staff/customers/register' },
       { label: 'Customer Inquiry', path: '/staff/customers/inquiry' }
@@ -23,7 +21,6 @@ const navItems = [
   },
   {
     label: 'Tickets',
-    icon: '🎫',
     submenu: [
       { label: 'Auction List', path: '/staff/tickets/auction' },
       { label: 'Expired List', path: '/staff/tickets/expired' },
@@ -32,21 +29,18 @@ const navItems = [
   },
   {
     label: 'Reminders',
-    icon: '🔔',
     submenu: [
       { label: 'Reminder Status', path: '/staff/reminders/status' }
     ]
   },
   {
     label: 'Appointments',
-    icon: '📅',
     submenu: [
       { label: 'Appointment List', path: '/staff/appointments/list' }
     ]
   },
   {
     label: 'Reports',
-    icon: '📊',
     submenu: [
       { label: 'Monthly Reports', path: '/staff/reports/monthly' },
       { label: 'Daily Reports', path: '/staff/reports/daily' }
@@ -83,7 +77,6 @@ export default function DashboardLayout() {
               {navItems.map((item) => (
                 <div key={item.label} className="relative group">
                   <button className="flex items-center gap-1 rounded-md px-4 py-2 text-sm font-medium text-black transition-all hover:bg-yellow-700/50">
-                    <span>{item.icon}</span>
                     <span>{item.label}</span>
                     {item.submenu && <ChevronDown className="h-4 w-4" />}
                   </button>

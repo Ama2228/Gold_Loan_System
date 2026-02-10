@@ -1,8 +1,9 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 export default function CustomerDashboard() {
+  const navigate = useNavigate()
   const [activeAppointmentId, setActiveAppointmentId] = useState(null)
-  const [isProfileOpen, setIsProfileOpen] = useState(false)
   const [profileForm, setProfileForm] = useState({
     name: 'Customer Name',
     customerId: 'CUS001',
@@ -125,92 +126,43 @@ export default function CustomerDashboard() {
             </div>
 
             <nav className="hidden md:flex items-center gap-3 text-sm font-semibold text-black">
-              <button className="rounded-md px-3 py-2 transition-all hover:bg-yellow-700/50">My Receipts</button>
+              <button
+                onClick={() => navigate('/customer/receipts')}
+                className="rounded-md px-3 py-2 transition-all hover:bg-yellow-700/50"
+              >
+                My Receipts
+              </button>
               <span className="text-black/40">|</span>
-              <button className="rounded-md px-3 py-2 transition-all hover:bg-yellow-700/50">Part Payments</button>
+              <button
+                onClick={() => navigate('/customer/part-payments')}
+                className="rounded-md px-3 py-2 transition-all hover:bg-yellow-700/50"
+              >
+                Part Payments
+              </button>
               <span className="text-black/40">|</span>
-              <button className="rounded-md px-3 py-2 transition-all hover:bg-yellow-700/50">Appointments</button>
+              <button
+                onClick={() => navigate('/customer/appointments')}
+                className="rounded-md px-3 py-2 transition-all hover:bg-yellow-700/50"
+              >
+                Appointments
+              </button>
               <span className="text-black/40">|</span>
-              <button className="rounded-md px-3 py-2 transition-all hover:bg-yellow-700/50">Notifications</button>
+              <button
+                onClick={() => navigate('/customer/notifications')}
+                className="rounded-md px-3 py-2 transition-all hover:bg-yellow-700/50"
+              >
+                Notifications
+              </button>
             </nav>
 
             <div className="flex items-center gap-4">
               <div className="relative">
                 <button
-                  onClick={() => setIsProfileOpen(prev => !prev)}
+                  onClick={() => navigate('/customer/profile')}
                   className="rounded-full bg-black/20 px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-black/30"
                 >
                   Profile
                 </button>
-                {isProfileOpen && (
-                  <div className="absolute right-0 mt-2 w-80 rounded-lg border border-gray-200 bg-white shadow-lg">
-                    <div className="border-b border-gray-100 px-4 py-3">
-                      <p className="text-sm font-semibold text-gray-900">Profile Details</p>
-                      <p className="text-xs text-gray-500">Manage contact info with OTP validation</p>
-                    </div>
-                    <div className="space-y-3 px-4 py-4">
-                      <div>
-                        <label className="block text-xs font-semibold text-gray-600 mb-1">Customer</label>
-                        <input
-                          type="text"
-                          name="name"
-                          value={profileForm.name}
-                          onChange={handleProfileChange}
-                          className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-semibold text-gray-600 mb-1">Customer ID</label>
-                        <input
-                          type="text"
-                          name="customerId"
-                          value={profileForm.customerId}
-                          onChange={handleProfileChange}
-                          className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-semibold text-gray-600 mb-1">Email</label>
-                        <input
-                          type="email"
-                          name="email"
-                          value={profileForm.email}
-                          onChange={handleProfileChange}
-                          className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-semibold text-gray-600 mb-1">Mobile</label>
-                        <input
-                          type="text"
-                          name="mobile"
-                          value={profileForm.mobile}
-                          onChange={handleProfileChange}
-                          className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-semibold text-gray-600 mb-1">OTP Code</label>
-                        <input
-                          type="text"
-                          name="otp"
-                          value={profileForm.otp}
-                          onChange={handleProfileChange}
-                          placeholder="Enter OTP"
-                          className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm"
-                        />
-                        <div className="mt-2 flex items-center gap-2">
-                          <button className="rounded-md border border-yellow-400 px-3 py-1 text-xs font-semibold text-yellow-700 hover:bg-yellow-50">
-                            Send OTP
-                          </button>
-                          <button className="rounded-md bg-yellow-500 px-3 py-1 text-xs font-semibold text-black hover:bg-yellow-600">
-                            Verify & Update
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
               <button className="rounded-md bg-red-500 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-600">
                 Logout

@@ -2,10 +2,15 @@ import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { Lock, User } from 'lucide-react'
 
-// Hardcoded staff credentials for testing
+// Hardcoded credentials for testing
 const STAFF_CREDENTIALS = {
   nic: '199978901234',
   password: 'Staff@123'
+}
+
+const MANAGER_CREDENTIALS = {
+  nic: '199911223344',
+  password: 'Manager@123'
 }
 
 export default function Login() {
@@ -30,10 +35,19 @@ export default function Login() {
     setTimeout(() => {
       // Validate against hardcoded credentials
       if (nic === STAFF_CREDENTIALS.nic && password === STAFF_CREDENTIALS.password) {
+        // Store role as STAFF
+        sessionStorage.setItem('userRole', 'STAFF')
+        sessionStorage.setItem('userNic', nic)
+        // Redirect to role selection portal
+        navigate('/login-as')
+      } else if (nic === MANAGER_CREDENTIALS.nic && password === MANAGER_CREDENTIALS.password) {
+        // Store role as MANAGER
+        sessionStorage.setItem('userRole', 'MANAGER')
+        sessionStorage.setItem('userNic', nic)
         // Redirect to role selection portal
         navigate('/login-as')
       } else {
-        setError('Invalid NIC or password. For testing, use NIC: 199978901234, Password: Staff@123')
+        setError('Invalid NIC or password. For testing, use NIC: 199978901234, Password: Staff@123 OR NIC: 199911223344, Password: Manager@123')
         setIsLoading(false)
       }
     }, 1000)
@@ -106,7 +120,7 @@ export default function Login() {
 
             {/* Forgot Password */}
             <div className="text-right">
-              <Link to="#" className="text-sm font-medium text-yellow-600 hover:text-yellow-700">
+              <Link to="/forgot-password" className="text-sm font-medium text-yellow-600 hover:text-yellow-700">
                 Forgot password?
               </Link>
             </div>
@@ -150,8 +164,8 @@ export default function Login() {
         <div className="mt-8 rounded-lg bg-yellow-500/10 p-4 border border-yellow-500/20 backdrop-blur">
           <p className="text-sm text-yellow-50">
             <strong>Test Credentials:</strong><br />
-            NIC: 199978901234<br />
-            Password: Staff@123
+            Staff - NIC: 199978901234, Password: Staff@123<br />
+            Manager - NIC: 199911223344, Password: Manager@123
           </p>
         </div>
       </div>

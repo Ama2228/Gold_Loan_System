@@ -125,7 +125,7 @@ const TicketInquiry = () => (
       <input
         type="text"
         placeholder="Search ticket number or customer name..."
-        className="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+        className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
       />
     </div>
 
