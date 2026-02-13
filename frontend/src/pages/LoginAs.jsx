@@ -1,5 +1,6 @@
 import { useNavigate, Link } from 'react-router-dom'
 import { Users, Shield, LogOut } from 'lucide-react'
+import apiService from '../services/api'
 
 export default function LoginAs() {
   const navigate = useNavigate()
@@ -22,9 +23,8 @@ export default function LoginAs() {
   }
 
   const handleLogout = () => {
-    // Clear session and go back to home
-    sessionStorage.removeItem('userRole')
-    sessionStorage.removeItem('userNic')
+    // Clear session and tokens, go back to login
+    apiService.logout()
     navigate('/login')
   }
 

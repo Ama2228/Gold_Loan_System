@@ -11,7 +11,7 @@ const initDatabase = async () => {
     // Connect to MySQL server (without database)
     connection = await mysql.createConnection({
       host: process.env.DB_HOST || 'localhost',
-      port: process.env.DB_PORT || 3306,
+      port: parseInt(process.env.DB_PORT) || 3307,
       user: process.env.DB_USER || 'root',
       password: process.env.DB_PASSWORD || '',
       multipleStatements: true
@@ -43,6 +43,7 @@ const initDatabase = async () => {
     const staffPassword = await bcrypt.hash('Staff@123', 10);
     const managerPassword = await bcrypt.hash('Manager@123', 10);
     const adminPassword = await bcrypt.hash('Dewama.952', 10);
+    const customerPassword = await bcrypt.hash('Customer@123', 10);
 
     // Insert demo users
     console.log('\n👥 Creating demo users...');
@@ -65,17 +66,25 @@ const initDatabase = async () => {
       VALUES ('200263000105', ?, 'Dewama Admin', 'ACTIVE')
     `, [adminPassword]);
 
+    // Customer user
+    await connection.query(`
+      INSERT IGNORE INTO users (nic, password_hash, full_name, status) 
+      VALUES ('199512345678', ?, 'Sarah Customer', 'ACTIVE')
+    `, [customerPassword]);
+
     console.log('✅ Demo users created');
 
     // Get user IDs
     const [staffUser] = await connection.query('SELECT user_id FROM users WHERE nic = ?', ['199978901234']);
     const [managerUser] = await connection.query('SELECT user_id FROM users WHERE nic = ?', ['199911223344']);
     const [adminUser] = await connection.query('SELECT user_id FROM users WHERE nic = ?', ['200263000105']);
+    const [customerUser] = await connection.query('SELECT user_id FROM users WHERE nic = ?', ['199512345678']);
 
     // Get role IDs
     const [staffRole] = await connection.query('SELECT role_id FROM roles WHERE role_name = ?', ['STAFF']);
     const [managerRole] = await connection.query('SELECT role_id FROM roles WHERE role_name = ?', ['MANAGER']);
     const [adminRole] = await connection.query('SELECT role_id FROM roles WHERE role_name = ?', ['ADMIN']);
+    const [customerRole] = await connection.query('SELECT role_id FROM roles WHERE role_name = ?', ['CUSTOMER']);
 
     // Assign roles
     console.log('\n🔑 Assigning roles...');
@@ -98,6 +107,13 @@ const initDatabase = async () => {
         INSERT IGNORE INTO user_roles (user_id, role_id) 
         VALUES (?, ?)
       `, [adminUser[0].user_id, adminRole[0].role_id]);
+    }
+
+    if (customerUser.length > 0 && customerRole.length > 0) {
+      await connection.query(`
+        INSERT IGNORE INTO user_roles (user_id, role_id) 
+        VALUES (?, ?)
+      `, [customerUser[0].user_id, customerRole[0].role_id]);
     }
 
     console.log('✅ Roles assigned');
@@ -140,6 +156,8 @@ const initDatabase = async () => {
     console.log('📋 Demo Credentials:');
     console.log('   Staff    - NIC: 199978901234, Password: Staff@123');
     console.log('   Manager  - NIC: 199911223344, Password: Manager@123');
+    console.log('   Admin    - NIC: 200263000105, Password: Dewama.952');
+    console.log('   Customer - NIC: 199512345678, Password: Customer@123');
     console.log('   Admin    - NIC: 200263000105, Password: Dewama.952');
     console.log('\n');
 

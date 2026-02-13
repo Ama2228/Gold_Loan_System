@@ -6,6 +6,8 @@ require('dotenv').config();
 
 const { testConnection } = require('./config/database');
 const authRoutes = require('./routes/authRoutes');
+const customerRoutes = require('./src/routes/customer.routes');
+const customerDashboardRoutes = require('./src/routes/customerDashboard.routes');
 
 const app = express();
 
@@ -31,6 +33,8 @@ if (process.env.NODE_ENV === 'development') {
 const API_PREFIX = process.env.API_PREFIX || '/api/v1';
 
 app.use(`${API_PREFIX}/auth`, authRoutes);
+app.use(`${API_PREFIX}/customers`, customerRoutes);
+app.use('/api/customer', customerDashboardRoutes);
 
 // Health check route
 app.get(`${API_PREFIX}/health`, (req, res) => {

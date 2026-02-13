@@ -9,8 +9,13 @@ const login = async (req, res) => {
   try {
     const { nic, password } = req.body;
 
+    console.log('\n🔐 LOGIN ATTEMPT');
+    console.log('NIC:', nic);
+    console.log('Password length:', password?.length);
+
     // Validate input
     if (!nic || !password) {
+      console.log('❌ Missing nic or password');
       return res.status(400).json({
         success: false,
         message: 'Please provide NIC and password'
@@ -18,6 +23,7 @@ const login = async (req, res) => {
     }
 
     // Get user with roles
+    console.log('🔍 Querying database for user...');
     const [users] = await pool.query(
       `SELECT u.user_id, u.nic, u.password_hash, u.full_name, u.status,
               GROUP_CONCAT(DISTINCT r.role_name) as roles,
@@ -31,7 +37,10 @@ const login = async (req, res) => {
       [nic]
     );
 
+    console.log('✅ Query complete. Users found:', users.length);
+
     if (users.length === 0) {
+      console.log('❌ No active user found with NIC:', nic);
       return res.status(401).json({
         success: false,
         message: 'Invalid credentials'
@@ -39,27 +48,39 @@ const login = async (req, res) => {
     }
 
     const user = users[0];
+    console.log('✅ User found:', user.full_name);
+    console.log('📝 Comparing passwords...');
+    console.log('   Provided password length:', password.length);
+    console.log('   Stored hash:', user.password_hash.substring(0, 30) + '...');
 
     // Check password
     const isPasswordValid = await bcrypt.compare(password, user.password_hash);
     
+    console.log('🔑 Password match:', isPasswordValid ? '✅ YES' : '❌ NO');
+    
     if (!isPasswordValid) {
+      console.log('❌ Invalid password for user:', user.nic);
       return res.status(401).json({
         success: false,
         message: 'Invalid credentials'
       });
     }
 
+    console.log('✅ Password valid! Generating token...');
+
     // Generate JWT token
+    const rolesArray = user.roles ? user.roles.split(',') : [];
     const token = jwt.sign(
       { 
         userId: user.user_id,
         nic: user.nic,
-        roles: user.roles ? user.roles.split(',') : []
+        roles: rolesArray
       },
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRE || '7d' }
     );
+
+    console.log('✅ Token generated successfully');
 
     res.json({
       success: true,
@@ -67,17 +88,20 @@ const login = async (req, res) => {
       data: {
         token,
         user: {
-          user_id: user.user_id,
+          userId: user.user_id,
           nic: user.nic,
-          full_name: user.full_name,
-          roles: user.roles ? user.roles.split(',') : [],
-          staff_type: user.staff_type,
-          branch_id: user.branch_id
+          fullName: user.full_name,
+          status: user.status,
+          primaryRole: rolesArray[0] || 'CUSTOMER',
+          roles: rolesArray,
+          staffType: user.staff_type,
+          branchId: user.branch_id
         }
       }
     });
+    console.log('✅ Response sent to client\n');
   } catch (error) {
-    console.error('Login error:', error);
+    console.error('❌ Login error:', error);
     res.status(500).json({
       success: false,
       message: 'Server error during login',

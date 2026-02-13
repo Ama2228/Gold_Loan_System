@@ -1,22 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { Lock, User } from 'lucide-react'
-
-// Hardcoded credentials for testing
-const STAFF_CREDENTIALS = {
-  nic: '199978901234',
-  password: 'Staff@123'
-}
-
-const MANAGER_CREDENTIALS = {
-  nic: '199911223344',
-  password: 'Manager@123'
-}
-
-const ADMIN_CREDENTIALS = {
-  nic: '200263000105',
-  password: 'Dewama.952'
-}
+import apiService from '../services/api'
 
 export default function Login() {
   const navigate = useNavigate()
@@ -25,7 +10,7 @@ export default function Login() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
     
@@ -36,32 +21,32 @@ export default function Login() {
 
     setIsLoading(true)
     
-    // Simulate login delay
-    setTimeout(() => {
-      // Validate against hardcoded credentials
-      if (nic === STAFF_CREDENTIALS.nic && password === STAFF_CREDENTIALS.password) {
-        // Store role as STAFF
-        sessionStorage.setItem('userRole', 'STAFF')
-        sessionStorage.setItem('userNic', nic)
-        // Redirect to role selection portal
-        navigate('/login-as')
-      } else if (nic === MANAGER_CREDENTIALS.nic && password === MANAGER_CREDENTIALS.password) {
-        // Store role as MANAGER
-        sessionStorage.setItem('userRole', 'MANAGER')
-        sessionStorage.setItem('userNic', nic)
-        // Redirect to role selection portal
-        navigate('/login-as')
-      } else if (nic === ADMIN_CREDENTIALS.nic && password === ADMIN_CREDENTIALS.password) {
-        // Store role as ADMIN
-        sessionStorage.setItem('userRole', 'ADMIN')
-        sessionStorage.setItem('userNic', nic)
-        // Redirect directly to admin dashboard
-        navigate('/admin/dashboard')
-      } else {
-        setError('Invalid NIC or password. Check info box below for test credentials.')
-        setIsLoading(false)
+    try {
+      // Call backend API
+      const response = await apiService.login(nic, password)
+      
+      if (response.success) {
+        const user = response.data.user
+        const primaryRole = user.primaryRole
+        
+        // Redirect based on role from backend
+        if (primaryRole === 'ADMIN') {
+          navigate('/admin/dashboard')
+        } else if (primaryRole === 'MANAGER') {
+          navigate('/manager/dashboard')
+        } else if (primaryRole === 'STAFF') {
+          navigate('/login-as')
+        } else if (primaryRole === 'CUSTOMER') {
+          navigate('/customer/dashboard')
+        } else {
+          navigate('/dashboard')
+        }
       }
-    }, 1000)
+    } catch (err) {
+      console.error('Login error:', err)
+      setError(err.message || 'Invalid NIC or password. Please try again.')
+      setIsLoading(false)
+    }
   }
 
   return (
