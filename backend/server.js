@@ -8,6 +8,7 @@ const { testConnection } = require('./config/database');
 const authRoutes = require('./routes/authRoutes');
 const customerRoutes = require('./src/routes/customer.routes');
 const customerDashboardRoutes = require('./src/routes/customerDashboard.routes');
+const adminRoutes = require('./src/routes/admin.routes');
 
 const app = express();
 
@@ -35,6 +36,7 @@ const API_PREFIX = process.env.API_PREFIX || '/api/v1';
 app.use(`${API_PREFIX}/auth`, authRoutes);
 app.use(`${API_PREFIX}/customers`, customerRoutes);
 app.use('/api/customer', customerDashboardRoutes);
+app.use(`${API_PREFIX}/admin`, adminRoutes);
 
 // Health check route
 app.get(`${API_PREFIX}/health`, (req, res) => {
