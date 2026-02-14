@@ -1406,7 +1406,17 @@ JOIN users u ON c.customer_id = u.user_id
 JOIN cities ci ON c.city_id = ci.city_id
 JOIN districts d ON ci.district_id = d.district_id;
 
+ALTER TABLE appointments
+DROP COLUMN time_slot_start,
+DROP COLUMN time_slot_end;
 
+SELECT 
+  a.appointment_id,
+  a.appointment_date,
+  ts.slot_start,
+  ts.slot_end
+FROM appointments a
+JOIN time_slots ts ON a.slot_id = ts.slot_id;
 
 
 

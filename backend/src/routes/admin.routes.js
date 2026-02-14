@@ -2,6 +2,7 @@ const express = require('express');
 const { authenticate: protect } = require('../../middleware/auth');
 const { authorize: requireRole } = require('../../middleware/auth');
 const { getBranches, createBranch, updateBranch, getBranchOpeningHours, updateBranchOpeningHours, getOccupations, createOccupation, updateOccupation, deleteOccupation, getPawningPeriods, createPawningPeriod, updatePawningPeriod, getTimeSlots, updateTimeSlot, generateDefaultTimeSlots, getKaratAdvanceRates, updateKaratAdvanceRate, getSystemSettings, updateSystemSetting } = require('../controllers/admin.controller');
+const { getStaff, createStaff, updateStaff, toggleStaffStatus } = require('../controllers/adminStaff.controller');
 
 const router = express.Router();
 
@@ -103,5 +104,29 @@ router.get('/settings', getSystemSettings);
 // @desc    Update system setting
 // @access  Private/Admin
 router.put('/settings/:key', updateSystemSetting);
+
+// =========================================================
+// STAFF MANAGEMENT ROUTES
+// =========================================================
+
+// @route   GET /staff
+// @desc    Get all staff with pagination
+// @access  Private/Admin
+router.get('/staff', getStaff);
+
+// @route   POST /staff
+// @desc    Create a new staff account
+// @access  Private/Admin
+router.post('/staff', createStaff);
+
+// @route   PUT /staff/:staffId
+// @desc    Update staff profile
+// @access  Private/Admin
+router.put('/staff/:staffId', updateStaff);
+
+// @route   PATCH /staff/:staffId/status
+// @desc    Toggle staff status (ACTIVE <-> INACTIVE)
+// @access  Private/Admin
+router.patch('/staff/:staffId/status', toggleStaffStatus);
 
 module.exports = router;

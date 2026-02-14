@@ -9,6 +9,8 @@ const authRoutes = require('./routes/authRoutes');
 const customerRoutes = require('./src/routes/customer.routes');
 const customerDashboardRoutes = require('./src/routes/customerDashboard.routes');
 const adminRoutes = require('./src/routes/admin.routes');
+const reportsRoutes = require('./src/routes/reports.routes');
+const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
 
@@ -37,6 +39,7 @@ app.use(`${API_PREFIX}/auth`, authRoutes);
 app.use(`${API_PREFIX}/customers`, customerRoutes);
 app.use('/api/customer', customerDashboardRoutes);
 app.use(`${API_PREFIX}/admin`, adminRoutes);
+app.use(`${API_PREFIX}/reports`, reportsRoutes);
 
 // Health check route
 app.get(`${API_PREFIX}/health`, (req, res) => {
@@ -68,16 +71,8 @@ app.use((req, res) => {
   });
 });
 
-// Global error handler
-app.use((err, req, res, next) => {
-  console.error('Error:', err);
-  
-  res.status(err.status || 500).json({
-    success: false,
-    message: err.message || 'Internal server error',
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
-  });
-});
+// Global error handler (MUST be last)
+app.use(errorHandler);
 
 // Start server
 const PORT = process.env.PORT || 5000;

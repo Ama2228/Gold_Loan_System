@@ -1,21 +1,40 @@
 const { pool } = require('../../config/database');
 
-// @desc    Get all branches
-// @returns List of all branches
-const listBranches = async () => {
+// @desc    Get all branches with pagination
+// @param   page - Page number (1-indexed)
+// @param   limit - Records per page
+// @returns Paginated list of branches
+const getBranches = async (page = 1, limit = 10) => {
   try {
+    const offset = (page - 1) * limit;
+
+    // Get total count
+    const [countResult] = await pool.query(
+      `SELECT COUNT(*) as total FROM branches`
+    );
+    const total = countResult[0].total;
+
+    // Get paginated branches
     const [branches] = await pool.query(
-      `SELECT branch_id, branch_code, branch_name, status 
+      `SELECT branch_id, branch_code, branch_name, address_line1, city, phone, status 
        FROM branches 
-       ORDER BY branch_code`
+       ORDER BY branch_code
+       LIMIT ? OFFSET ?`,
+      [limit, offset]
     );
 
     return {
       success: true,
-      data: branches
+      data: branches,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit)
+      }
     };
   } catch (error) {
-    console.error('❌ listBranches error:', error);
+    console.error('❌ getBranches error:', error);
     throw error;
   }
 };
@@ -25,17 +44,17 @@ const listBranches = async () => {
 // @returns Created branch object
 const createBranch = async (data) => {
   try {
-    const { branch_code, branch_name, address_line1, address_line2, city_id, status } = data;
+    const { branch_code, branch_name, address_line1, city, phone, status } = data;
 
     const [result] = await pool.query(
-      `INSERT INTO branches (branch_code, branch_name, address_line1, address_line2, city_id, status)
+      `INSERT INTO branches (branch_code, branch_name, address_line1, city, phone, status)
        VALUES (?, ?, ?, ?, ?, ?)`,
-      [branch_code, branch_name, address_line1, address_line2 || null, city_id || null, status]
+      [branch_code, branch_name, address_line1, city, phone, status]
     );
 
     // Fetch the inserted branch
     const [insertedBranch] = await pool.query(
-      `SELECT branch_id, branch_code, branch_name, address_line1, address_line2, city_id, status
+      `SELECT branch_id, branch_code, branch_name, address_line1, city, phone, status
        FROM branches
        WHERE branch_id = ?`,
       [result.insertId]
@@ -89,13 +108,14 @@ const updateBranch = async (branchId, data) => {
       fields.push('address_line1 = ?');
       values.push(data.address_line1);
     }
-    if (data.address_line2 !== undefined) {
-      fields.push('address_line2 = ?');
-      values.push(data.address_line2);
+
+    if (data.city !== undefined) {
+      fields.push('city = ?');
+      values.push(data.city);
     }
-    if (data.city_id !== undefined) {
-      fields.push('city_id = ?');
-      values.push(data.city_id);
+    if (data.phone !== undefined) {
+      fields.push('phone = ?');
+      values.push(data.phone);
     }
     if (data.status !== undefined) {
       fields.push('status = ?');
@@ -105,7 +125,7 @@ const updateBranch = async (branchId, data) => {
     // If no fields to update, return current branch
     if (fields.length === 0) {
       const [branch] = await pool.query(
-        `SELECT branch_id, branch_code, branch_name, address_line1, address_line2, city_id, status
+        `SELECT branch_id, branch_code, branch_name, address_line1, city, phone, status
          FROM branches
          WHERE branch_id = ?`,
         [branchId]
@@ -125,7 +145,7 @@ const updateBranch = async (branchId, data) => {
 
     // Fetch and return updated branch
     const [updatedBranch] = await pool.query(
-      `SELECT branch_id, branch_code, branch_name, address_line1, address_line2, city_id, status
+      `SELECT branch_id, branch_code, branch_name, address_line1, city, phone, status
        FROM branches
        WHERE branch_id = ?`,
       [branchId]
@@ -843,7 +863,7 @@ const updateSystemSetting = async (key, value, updatedByStaffId = null) => {
 };
 
 module.exports = {
-  listBranches,
+  getBranches,
   createBranch,
   updateBranch,
   getBranchOpeningHours,

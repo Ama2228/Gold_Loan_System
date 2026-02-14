@@ -43,7 +43,7 @@ const initDatabase = async () => {
     const staffPassword = await bcrypt.hash('Staff@123', 10);
     const managerPassword = await bcrypt.hash('Manager@123', 10);
     const adminPassword = await bcrypt.hash('Dewama.952', 10);
-    const customerPassword = await bcrypt.hash('Customer@123', 10);
+    const customerPassword = await bcrypt.hash('Dewama.952', 10);
 
     // Insert demo users
     console.log('\n👥 Creating demo users...');
@@ -69,7 +69,7 @@ const initDatabase = async () => {
     // Customer user
     await connection.query(`
       INSERT IGNORE INTO users (nic, password_hash, full_name, status) 
-      VALUES ('199512345678', ?, 'Sarah Customer', 'ACTIVE')
+      VALUES ('200123456789', ?, 'Dewama Customer', 'ACTIVE')
     `, [customerPassword]);
 
     console.log('✅ Demo users created');
@@ -78,7 +78,7 @@ const initDatabase = async () => {
     const [staffUser] = await connection.query('SELECT user_id FROM users WHERE nic = ?', ['199978901234']);
     const [managerUser] = await connection.query('SELECT user_id FROM users WHERE nic = ?', ['199911223344']);
     const [adminUser] = await connection.query('SELECT user_id FROM users WHERE nic = ?', ['200263000105']);
-    const [customerUser] = await connection.query('SELECT user_id FROM users WHERE nic = ?', ['199512345678']);
+    const [customerUser] = await connection.query('SELECT user_id FROM users WHERE nic = ?', ['200123456789']);
 
     // Get role IDs
     const [staffRole] = await connection.query('SELECT role_id FROM roles WHERE role_name = ?', ['STAFF']);
@@ -157,8 +157,7 @@ const initDatabase = async () => {
     console.log('   Staff    - NIC: 199978901234, Password: Staff@123');
     console.log('   Manager  - NIC: 199911223344, Password: Manager@123');
     console.log('   Admin    - NIC: 200263000105, Password: Dewama.952');
-    console.log('   Customer - NIC: 199512345678, Password: Customer@123');
-    console.log('   Admin    - NIC: 200263000105, Password: Dewama.952');
+    console.log('   Customer - NIC: 200123456789, Password: Dewama.952');
     console.log('\n');
 
   } catch (error) {

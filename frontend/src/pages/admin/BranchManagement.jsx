@@ -19,8 +19,8 @@ export default function BranchManagement() {
     branch_code: '',
     branch_name: '',
     address_line1: '',
-    address_line2: '',
-    city_id: '',
+    city: '',
+    phone: '',
     status: 'ACTIVE'
   })
 
@@ -97,6 +97,14 @@ export default function BranchManagement() {
       errors.address_line1 = 'Address line 1 is required'
     }
 
+    if (!formData.city.trim()) {
+      errors.city = 'City is required'
+    }
+
+    if (!formData.phone.trim()) {
+      errors.phone = 'Phone number is required'
+    }
+
     // Check for duplicate branch code when adding new branch
     if (modalType === 'add' && branches.some(b => b.branch_code === formData.branch_code)) {
       errors.branch_code = 'This branch code already exists'
@@ -113,8 +121,8 @@ export default function BranchManagement() {
       branch_code: '',
       branch_name: '',
       address_line1: '',
-      address_line2: '',
-      city_id: '',
+      city: '',
+      phone: '',
       status: 'ACTIVE'
     })
     setFormErrors({})
@@ -129,8 +137,8 @@ export default function BranchManagement() {
       branch_code: branch.branch_code,
       branch_name: branch.branch_name,
       address_line1: branch.address_line1 || '',
-      address_line2: branch.address_line2 || '',
-      city_id: branch.city_id || '',
+      city: branch.city || '',
+      phone: branch.phone || '',
       status: branch.status
     })
     setFormErrors({})
@@ -318,6 +326,12 @@ export default function BranchManagement() {
                         Address
                       </th>
                       <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
+                        City
+                      </th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
+                        Phone
+                      </th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
                         Status
                       </th>
                       <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
@@ -341,6 +355,12 @@ export default function BranchManagement() {
                         </td>
                         <td className="px-6 py-4">
                           <p className="text-sm text-gray-600">{branch.address_line1}</p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <p className="text-sm text-gray-600">{branch.city}</p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <p className="text-sm text-gray-600">{branch.phone}</p>
                         </td>
                         <td className="px-6 py-4">
                           <span
@@ -471,19 +491,48 @@ export default function BranchManagement() {
                 )}
               </div>
 
-              {/* Address Line 2 */}
+              {/* City */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Address Line 2 (Optional)
+                  City *
                 </label>
                 <input
                   type="text"
-                  name="address_line2"
-                  value={formData.address_line2}
+                  name="city"
+                  value={formData.city}
                   onChange={handleInputChange}
-                  placeholder="e.g., Ground Floor"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                  placeholder="e.g., Colombo"
+                  className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
+                    formErrors.city
+                      ? 'border-red-300 focus:ring-red-500'
+                      : 'border-gray-300'
+                  }`}
                 />
+                {formErrors.city && (
+                  <p className="text-red-600 text-xs mt-1">{formErrors.city}</p>
+                )}
+              </div>
+
+              {/* Phone */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Phone Number *
+                </label>
+                <input
+                  type="tel"
+                  name="phone"
+                  value={formData.phone}
+                  onChange={handleInputChange}
+                  placeholder="e.g., 0112345678"
+                  className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
+                    formErrors.phone
+                      ? 'border-red-300 focus:ring-red-500'
+                      : 'border-gray-300'
+                  }`}
+                />
+                {formErrors.phone && (
+                  <p className="text-red-600 text-xs mt-1">{formErrors.phone}</p>
+                )}
               </div>
 
               {/* Status */}

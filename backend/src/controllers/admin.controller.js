@@ -33,7 +33,7 @@ const getBranches = async (req, res) => {
 const createBranch = async (req, res) => {
   try {
     console.log('➕ Creating new branch');
-    const { branch_code, branch_name, address_line1, address_line2, city_id, status } = req.body;
+    const { branch_code, branch_name, address_line1, address_line2, city, phone, status } = req.body;
 
     // Validation
     if (!branch_code) {
@@ -65,13 +65,27 @@ const createBranch = async (req, res) => {
       });
     }
 
+    if (!city) {
+      return res.status(400).json({
+        success: false,
+        message: 'city is required'
+      });
+    }
+
+    if (!phone) {
+      return res.status(400).json({
+        success: false,
+        message: 'phone is required'
+      });
+    }
+
     // Prepare branch data
     const branchData = {
       branch_code,
       branch_name,
       address_line1,
-      address_line2: address_line2 || null,
-      city_id: city_id || null,
+      city,
+      phone,
       status: status || 'ACTIVE'
     };
 
@@ -103,7 +117,7 @@ const updateBranch = async (req, res) => {
   try {
     console.log('✏️ Updating branch');
     const { branchId } = req.params;
-    const { branch_name, address_line1, address_line2, city_id, status } = req.body;
+    const { branch_name, address_line1, city, phone, status } = req.body;
 
     if (!branchId) {
       return res.status(400).json({
@@ -117,8 +131,8 @@ const updateBranch = async (req, res) => {
     
     if (branch_name !== undefined) updateData.branch_name = branch_name;
     if (address_line1 !== undefined) updateData.address_line1 = address_line1;
-    if (address_line2 !== undefined) updateData.address_line2 = address_line2;
-    if (city_id !== undefined) updateData.city_id = city_id;
+    if (city !== undefined) updateData.city = city;
+    if (phone !== undefined) updateData.phone = phone;
     if (status !== undefined) updateData.status = status;
 
     // Check if at least one field is provided for update
@@ -999,7 +1013,7 @@ const updateSystemSetting = async (req, res) => {
       });
     }
 
-    const result = await adminService.updateSystemSetting(key, String(value));
+    const result = await adminService.updateSystemSetting(key, String(value), req.user?.user_id || null);
 
     if (!result.success) {
       if (result.code === 'NOT_FOUND') {

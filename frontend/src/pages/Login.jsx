@@ -141,7 +141,7 @@ export default function Login() {
           {/* Register Link */}
           <div className="text-center">
             <p className="text-sm text-gray-600">
-              New staff member?{' '}
+              New Customer?{' '}
               <Link to="/register" className="font-semibold text-yellow-600 hover:text-yellow-700">
                 Register here
               </Link>
