@@ -103,45 +103,42 @@ const managerNavItems = [
 const adminNavItems = [
   {
     label: 'Dashboard',
+    path: '/admin/dashboard',
+    submenu: null
+  },
+  {
+    label: 'Management',
     submenu: [
-      { label: 'Overview', path: '/admin/dashboard' }
+      { label: 'Staff Management', path: '/admin/staff' },
+      { label: 'Branch Management', path: '/admin/branches' },
+      { label: 'Opening Hours', path: '/admin/opening-hours' }
     ]
   },
   {
-    label: 'Staff Management',
+    label: 'System',
     submenu: [
-      { label: 'Manage Staff', path: '/admin/staff' }
-    ]
-  },
-  {
-    label: 'Branch Management',
-    submenu: [
-      { label: 'Manage Branches', path: '/admin/branches' }
-    ]
-  },
-  {
-    label: 'Opening Hours',
-    submenu: [
-      { label: 'Manage Hours', path: '/admin/opening-hours' }
-    ]
-  },
-  {
-    label: 'System Settings',
-    submenu: [
-      { label: 'Manage Settings', path: '/admin/settings' }
+      { label: 'Occupations', path: '/admin/occupations' },
+      { label: 'Pawning Periods', path: '/admin/pawning-periods' },
+      { label: 'Time Slots', path: '/admin/time-slots' },
+      { label: 'Karat Rates', path: '/admin/advance-rates' },
+      { label: 'System Settings', path: '/admin/settings' }
     ]
   },
   {
     label: 'Reports',
     submenu: [
-      { label: 'View Reports', path: '/admin/reports' }
+      { label: 'Daily Report', path: '/admin/reports/daily' },
+      { label: 'Monthly Report', path: '/admin/reports/monthly' },
+      { label: 'Auction List', path: '/admin/reports/auction' }
     ]
   }
 ]
 
 export default function DashboardLayout() {
   const navigate = useNavigate()
+  const [openDropdown, setOpenDropdown] = useState(null)
   const userRole = sessionStorage.getItem('userRole') || 'STAFF'
+  const userName = sessionStorage.getItem('userName') || 'User'
   
   // Use different nav items based on role
   const navItems = userRole === 'ADMIN' ? adminNavItems : userRole === 'MANAGER' ? managerNavItems : staffNavItems
@@ -149,7 +146,17 @@ export default function DashboardLayout() {
   const handleLogout = () => {
     sessionStorage.removeItem('userRole')
     sessionStorage.removeItem('userNic')
+    sessionStorage.removeItem('userName')
+    localStorage.removeItem('token')
     navigate('/login')
+  }
+
+  const toggleDropdown = (label) => {
+    setOpenDropdown(openDropdown === label ? null : label)
+  }
+
+  const closeDropdown = () => {
+    setOpenDropdown(null)
   }
 
   return (
@@ -165,57 +172,91 @@ export default function DashboardLayout() {
               </div>
               <div>
                 <h1 className="text-xl font-bold text-black">Smart Gold</h1>
-                <p className="text-xs text-black/70">Pawning Assistant Dashboard</p>
+                <p className="text-xs text-black/70">{userRole === 'ADMIN' ? 'Head Office Control Panel' : 'Pawning Assistant Dashboard'}</p>
               </div>
             </div>
 
             {/* Center Navigation */}
             <div className="flex items-center gap-1">
               {navItems.map((item) => (
-                <div key={item.label} className="relative group">
-                  <button className="flex items-center gap-1 rounded-md px-4 py-2 text-sm font-medium text-black transition-all hover:bg-yellow-700/50">
-                    <span>{item.label}</span>
-                    {item.submenu && <ChevronDown className="h-4 w-4" />}
-                  </button>
+                <div key={item.label} className="relative">
+                  {/* If item has no submenu, render as NavLink */}
+                  {!item.submenu ? (
+                    <NavLink
+                      to={item.path}
+                      className={({ isActive }) =>
+                        `flex items-center gap-1 rounded-md px-4 py-2 text-sm font-medium transition-all ${ 
+                          isActive
+                            ? 'border-b-2 border-black bg-yellow-700/50 text-black'
+                            : 'text-black hover:bg-yellow-700/50'
+                        }`
+                      }
+                    >
+                      {item.label}
+                    </NavLink>
+                  ) : (
+                    <>
+                      {/* If item has submenu, render as dropdown button */}
+                      <button
+                        onClick={() => toggleDropdown(item.label)}
+                        className="flex items-center gap-1 rounded-md px-4 py-2 text-sm font-medium text-black transition-all hover:bg-yellow-700/50"
+                      >
+                        <span>{item.label}</span>
+                        <ChevronDown 
+                          className={`h-4 w-4 transition-transform ${openDropdown === item.label ? 'rotate-180' : ''}`}
+                        />
+                      </button>
 
-                  {/* Dropdown Menu */}
-                  {item.submenu && (
-                    <div className="invisible absolute left-0 top-full mt-0 w-48 rounded-lg bg-white shadow-xl opacity-0 transition-all group-hover:visible group-hover:opacity-100">
-                      {item.submenu.map((subitem) => (
-                        <NavLink
-                          key={subitem.path}
-                          to={subitem.path}
-                          className={({ isActive }) =>
-                            `block px-4 py-3 text-sm font-medium transition-colors first:rounded-t-lg last:rounded-b-lg ${
-                              isActive
-                                ? 'bg-yellow-50 text-yellow-600'
-                                : 'text-gray-700 hover:bg-gray-50'
-                            }`
-                          }
-                        >
-                          {subitem.label}
-                        </NavLink>
-                      ))}
-                    </div>
+                      {/* Dropdown Menu */}
+                      {openDropdown === item.label && (
+                        <div className="absolute left-0 top-full mt-1 w-56 rounded-lg bg-white shadow-xl z-10">
+                          {item.submenu.map((subitem, idx) => (
+                            <NavLink
+                              key={subitem.path}
+                              to={subitem.path}
+                              onClick={closeDropdown}
+                              className={({ isActive }) =>
+                                `block px-4 py-3 text-sm font-medium transition-colors ${
+                                  idx === 0 ? 'rounded-t-lg' : ''
+                                } ${idx === item.submenu.length - 1 ? 'rounded-b-lg' : ''} ${
+                                  isActive
+                                    ? 'bg-yellow-100 border-l-4 border-yellow-600 text-yellow-900'
+                                    : 'text-gray-700 hover:bg-gray-50'
+                                }`
+                              }
+                            >
+                              {subitem.label}
+                            </NavLink>
+                          ))}
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               ))}
             </div>
 
             {/* Right Side - User Section */}
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
+              {userRole === 'ADMIN' && (
+                <div className="flex items-center gap-2 rounded-full bg-black/20 px-3 py-1">
+                  <span className="inline-block bg-yellow-700 text-white px-2 py-1 rounded text-xs font-semibold">
+                    ADMIN (Head Office)
+                  </span>
+                </div>
+              )}
               <div className="flex items-center gap-3 rounded-full bg-black/20 px-4 py-2">
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-black text-yellow-400 font-bold text-sm">
-                  HN
+                  {userName.charAt(0).toUpperCase()}
                 </div>
                 <div className="hidden sm:block">
-                  <p className="text-sm font-semibold text-black">Hasindu N.</p>
+                  <p className="text-sm font-semibold text-black">{userName}</p>
                   <p className="text-xs text-black/70">{userRole}</p>
                 </div>
               </div>
               <button
                 onClick={handleLogout}
-                className="rounded-md bg-red-500 p-2 text-white transition-colors hover:bg-red-600"
+                className="rounded-md bg-red-600 p-2 text-white transition-colors hover:bg-red-700 shadow-md"
                 title="Logout"
               >
                 <LogOut className="h-5 w-5" />

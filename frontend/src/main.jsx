@@ -32,6 +32,13 @@ import BranchManagement from './pages/admin/BranchManagement.jsx'
 import OpeningHours from './pages/admin/OpeningHours.jsx'
 import SystemSettings from './pages/admin/SystemSettings.jsx'
 import AdminReports from './pages/admin/AdminReports.jsx'
+import Occupations from './pages/admin/Occupations.jsx'
+import PawningPeriods from './pages/admin/PawningPeriods.jsx'
+import TimeSlots from './pages/admin/TimeSlots.jsx'
+import AdvanceRates from './pages/admin/AdvanceRates.jsx'
+import DailyReport from './pages/admin/DailyReport.jsx'
+import MonthlyReport from './pages/admin/MonthlyReport.jsx'
+import AuctionReport from './pages/admin/AuctionReport.jsx'
 
 ReactDOM.createRoot(document.getElementById('app')).render(
   <React.StrictMode>
@@ -87,8 +94,15 @@ ReactDOM.createRoot(document.getElementById('app')).render(
           <Route path="staff" element={<StaffManagement />} />
           <Route path="branches" element={<BranchManagement />} />
           <Route path="opening-hours" element={<OpeningHours />} />
+          <Route path="occupations" element={<Occupations />} />
+          <Route path="pawning-periods" element={<PawningPeriods />} />
+          <Route path="time-slots" element={<TimeSlots />} />
+          <Route path="advance-rates" element={<AdvanceRates />} />
           <Route path="settings" element={<SystemSettings />} />
           <Route path="reports" element={<AdminReports />} />
+          <Route path="reports/daily" element={<DailyReport />} />
+          <Route path="reports/monthly" element={<MonthlyReport />} />
+          <Route path="reports/auction" element={<AuctionReport />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
