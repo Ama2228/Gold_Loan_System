@@ -10,6 +10,7 @@ const customerRoutes = require('./src/routes/customer.routes');
 const customerDashboardRoutes = require('./src/routes/customerDashboard.routes');
 const adminRoutes = require('./src/routes/admin.routes');
 const reportsRoutes = require('./src/routes/reports.routes');
+const staffCustomersRoutes = require('./src/routes/staffCustomers.routes');
 const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
@@ -40,6 +41,7 @@ app.use(`${API_PREFIX}/customers`, customerRoutes);
 app.use('/api/customer', customerDashboardRoutes);
 app.use(`${API_PREFIX}/admin`, adminRoutes);
 app.use(`${API_PREFIX}/reports`, reportsRoutes);
+app.use(`${API_PREFIX}/staff/customers`, staffCustomersRoutes);
 
 // Health check route
 app.get(`${API_PREFIX}/health`, (req, res) => {

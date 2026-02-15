@@ -1,7 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Search, Plus } from 'lucide-react'
+import api from '../../services/api'
 
 export default function RegisterCustomer() {
+  const [occupations, setOccupations] = useState([])
+  const [cities, setCities] = useState([])
+  const [loading, setLoading] = useState(true)
   const [formData, setFormData] = useState({
     title: '',
     initialsName: '',
@@ -16,12 +20,50 @@ export default function RegisterCustomer() {
     mobileNumber: ''
   })
 
+  useEffect(() => {
+    fetchMetadata()
+  }, [])
+
+  const fetchMetadata = async () => {
+    try {
+      setLoading(true)
+      const [occupationsRes, citiesRes] = await Promise.all([
+        api.get('/staff/customers/meta/occupations'),
+        api.get('/staff/customers/meta/cities')
+      ])
+      
+      if (occupationsRes.data.success) {
+        setOccupations(occupationsRes.data.data)
+      }
+      
+      if (citiesRes.data.success) {
+        setCities(citiesRes.data.data)
+      }
+    } catch (error) {
+      console.error('Failed to fetch metadata:', error)
+      alert('Failed to load form data. Please refresh the page.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }))
+    
+    // If city is changed, auto-update district
+    if (name === 'city') {
+      const selectedCity = cities.find(c => c.city_id === parseInt(value))
+      setFormData(prev => ({
+        ...prev,
+        city: value,
+        district: selectedCity ? selectedCity.district_name : ''
+      }))
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: type === 'checkbox' ? checked : value
+      }))
+    }
   }
 
   const handleSubmit = (e) => {
@@ -37,6 +79,11 @@ export default function RegisterCustomer() {
       </div>
 
       <form onSubmit={handleSubmit} className="max-w-5xl mx-auto">
+        {loading && (
+          <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-lg mb-4 text-center">
+            Loading form data...
+          </div>
+        )}
         <div className="space-y-6 bg-white p-8 rounded-lg border border-gray-200 shadow-sm">
           <div className="grid gap-6 sm:grid-cols-3">
             <div>
@@ -102,14 +149,20 @@ export default function RegisterCustomer() {
             </div>
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">Occupation</label>
-              <input
-                type="text"
+              <select
                 name="occupation"
                 value={formData.occupation}
                 onChange={handleChange}
-                placeholder="Software Engineer"
-                className="w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-              />
+                disabled={loading}
+                className="w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500 disabled:bg-gray-100"
+              >
+                <option value="">Select Occupation</option>
+                {occupations.map((occupation) => (
+                  <option key={occupation.occupation_id} value={occupation.occupation_id}>
+                    {occupation.occupation_name}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 
@@ -145,41 +198,27 @@ export default function RegisterCustomer() {
                 name="city"
                 value={formData.city}
                 onChange={handleChange}
-                className="w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                disabled={loading}
+                className="w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500 disabled:bg-gray-100"
               >
                 <option value="">Select City</option>
-                <option>Colombo</option>
-                <option>Kandy</option>
-                <option>Galle</option>
-                <option>Negombo</option>
-                <option>Matara</option>
-                <option>Jaffna</option>
-                <option>Kurunegala</option>
-                <option>Anuradhapura</option>
-                <option>Trincomalee</option>
-                <option>Batticaloa</option>
+                {cities.map((city) => (
+                  <option key={city.city_id} value={city.city_id}>
+                    {city.city_name}
+                  </option>
+                ))}
               </select>
             </div>
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">District</label>
-              <select
+              <input
+                type="text"
                 name="district"
                 value={formData.district}
-                onChange={handleChange}
-                className="w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-              >
-                <option value="">Select District</option>
-                <option>Colombo</option>
-                <option>Kandy</option>
-                <option>Galle</option>
-                <option>Gampaha</option>
-                <option>Matara</option>
-                <option>Jaffna</option>
-                <option>Kurunegala</option>
-                <option>Anuradhapura</option>
-                <option>Trincomalee</option>
-                <option>Batticaloa</option>
-              </select>
+                readOnly
+                placeholder="Auto-populated from city"
+                className="w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-900 bg-gray-50 cursor-not-allowed"
+              />
             </div>
           </div>
 
