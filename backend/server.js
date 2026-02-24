@@ -11,6 +11,7 @@ const customerDashboardRoutes = require('./src/routes/customerDashboard.routes')
 const adminRoutes = require('./src/routes/admin.routes');
 const reportsRoutes = require('./src/routes/reports.routes');
 const staffCustomersRoutes = require('./src/routes/staffCustomers.routes');
+const pawnTicketsRoutes = require('./src/routes/pawnTickets.routes');
 const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
@@ -42,6 +43,7 @@ app.use('/api/customer', customerDashboardRoutes);
 app.use(`${API_PREFIX}/admin`, adminRoutes);
 app.use(`${API_PREFIX}/reports`, reportsRoutes);
 app.use(`${API_PREFIX}/staff/customers`, staffCustomersRoutes);
+app.use(`${API_PREFIX}/staff/pawn-tickets`, pawnTicketsRoutes);
 
 // Health check route
 app.get(`${API_PREFIX}/health`, (req, res) => {

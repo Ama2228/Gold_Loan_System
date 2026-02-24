@@ -1,4 +1,4 @@
-const mysql = require('mysql2/promise');
+git const mysql = require('mysql2/promise');
 const path = require('path');
 
 // Load dotenv from parent directory
