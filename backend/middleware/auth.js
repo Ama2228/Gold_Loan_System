@@ -22,10 +22,12 @@ const authenticate = async (req, res, next) => {
     // Get user from database
     const [users] = await pool.query(
       `SELECT u.user_id, u.nic, u.full_name, u.status,
-              GROUP_CONCAT(DISTINCT r.role_name) as roles
+              GROUP_CONCAT(DISTINCT r.role_name) as roles,
+              sp.branch_id
        FROM users u
        LEFT JOIN user_roles ur ON u.user_id = ur.user_id
        LEFT JOIN roles r ON ur.role_id = r.role_id
+       LEFT JOIN staff_profiles sp ON u.user_id = sp.staff_id
        WHERE u.user_id = ? AND u.status = 'ACTIVE'
        GROUP BY u.user_id`,
       [decoded.userId]

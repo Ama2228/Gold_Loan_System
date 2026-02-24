@@ -75,14 +75,18 @@ const testFeature4 = async () => {
 
     if (loginResponse.status !== 200) {
       console.log('❌ Failed to login as staff');
+      console.log('Response:', JSON.stringify(loginResponse, null, 2));
       return false;
     }
 
     const staffToken = loginResponse.data.data?.token || loginResponse.data.token;
-    const staffBranchId = loginResponse.data.data?.branch_id;
+    const staffBranchId = loginResponse.data.data?.user?.branchId || loginResponse.data.user?.branchId;
 
     if (!staffToken || !staffBranchId) {
       console.log('❌ Staff token or branch_id not found');
+      console.log('Token:', staffToken ? '✅' : '❌');
+      console.log('Branch ID:', staffBranchId ? `✅ ${staffBranchId}` : '❌');
+      console.log('Response:', JSON.stringify(loginResponse, null, 2));
       return false;
     }
 
@@ -93,12 +97,13 @@ const testFeature4 = async () => {
     console.log('\n📝 Getting test customer ID...');
     const getCustomersResponse = await makeRequest('GET', '/api/v1/staff/customers?limit=1', null, staffToken);
     
-    if (getCustomersResponse.status !== 200 || !getCustomersResponse.data.data.data[0]) {
+    if (getCustomersResponse.status !== 200 || !getCustomersResponse.data.data || !getCustomersResponse.data.data[0]) {
       console.log('❌ No customers found');
+      console.log('Response:', JSON.stringify(getCustomersResponse, null, 2));
       return false;
     }
 
-    const testCustomerId = getCustomersResponse.data.data.data[0].user_id;
+    const testCustomerId = getCustomersResponse.data.data[0].customer_id;
     console.log(`✅ Using customer ID: ${testCustomerId}`);
 
     // ========== TEST 1: Create Pawn Ticket ==========
@@ -148,7 +153,9 @@ const testFeature4 = async () => {
       console.log(`   Articles: ${ticketData.articles_count}`);
     } else {
       console.log(`   ❌ FAIL - Ticket Creation Failed`);
-      console.log(`   Error: ${createTicketResponse.data.message}`);
+      console.log(`   Message: ${createTicketResponse.data.message}`);
+      console.log(`   Error: ${createTicketResponse.data.error}`);
+      console.log(`   Full Response:`, JSON.stringify(createTicketResponse.data, null, 2));
     }
     addResult('POST - Create Pawn Ticket', ticketCreated);
 

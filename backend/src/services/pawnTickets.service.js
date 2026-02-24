@@ -1,5 +1,5 @@
 const mysql = require('mysql2/promise');
-const pool = require('../../config/database');
+const { pool } = require('../../config/database');
 
 /**
  * ========================================
@@ -40,9 +40,9 @@ class PawnTicketsService {
    */
   async getKaratRate(karat) {
     const query = `
-      SELECT rate_per_gram 
+      SELECT advance_value_per_gram 
       FROM karat_advance_rates 
-      WHERE karat = ? AND status = 'ACTIVE'
+      WHERE karat = ? AND is_active = 1
       LIMIT 1
     `;
     
@@ -54,7 +54,7 @@ class PawnTicketsService {
     
     return {
       karat,
-      rate_per_gram: parseFloat(rows[0].rate_per_gram)
+      rate_per_gram: parseFloat(rows[0].advance_value_per_gram)
     };
   }
 
@@ -134,9 +134,9 @@ class PawnTicketsService {
    */
   async getPawningPeriod(periodMonths) {
     const query = `
-      SELECT period_id, period_months, status
+      SELECT period_id, duration_months, period_name
       FROM pawning_periods
-      WHERE period_months = ? AND status = 'ACTIVE'
+      WHERE duration_months = ? AND is_active = 1
       LIMIT 1
     `;
     
@@ -161,23 +161,23 @@ class PawnTicketsService {
 
   /**
    * Get annual interest rate for ticket
-   * Based on pawning period
+   * Based on system settings
    */
   async getAnnualInterestRate(periodMonths) {
     const query = `
-      SELECT annual_interest_rate
-      FROM pawning_periods
-      WHERE period_months = ? AND status = 'ACTIVE'
+      SELECT setting_value
+      FROM system_settings
+      WHERE setting_key = 'ANNUAL_INTEREST_RATE'
       LIMIT 1
     `;
     
-    const [rows] = await pool.query(query, [periodMonths]);
+    const [rows] = await pool.query(query);
     
     if (rows.length === 0) {
       return 18; // Default fallback
     }
     
-    return parseFloat(rows[0].annual_interest_rate);
+    return parseFloat(rows[0].setting_value);
   }
 
   /**
