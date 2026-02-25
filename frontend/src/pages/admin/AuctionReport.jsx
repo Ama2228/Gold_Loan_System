@@ -1,9 +1,15 @@
 import { useState, useEffect } from 'react'
-import { AlertCircle, Loader, Gavel, Download, FileText, DollarSign, Clock, AlertTriangle } from 'lucide-react'
+import { AlertCircle, Loader, Gavel, Download, FileText, DollarSign, Clock, AlertTriangle, Sheet } from 'lucide-react'
 import apiService from '../../services/api'
+import { exportToPdf, exportToExcel } from '../../utils/reportExport'
 
 export default function AuctionReport() {
-  const userRole = sessionStorage.getItem('userRole')
+  const userRole = sessionStorage.getItem('userRole') || 'STAFF'
+  const userStr = localStorage.getItem('user')
+  const userBranchId = userStr ? (JSON.parse(userStr)?.branchId ?? null) : null
+  const isStaff = userRole === 'STAFF'
+  const isAdmin = userRole === 'ADMIN'
+
   const [branches, setBranches] = useState([])
   const [loading, setLoading] = useState(false)
   const [reportLoading, setReportLoading] = useState(false)
@@ -21,21 +27,19 @@ export default function AuctionReport() {
   const [summary, setSummary] = useState(null)
   const [reportData, setReportData] = useState(null)
 
-  // Role guard
-  if (userRole !== 'ADMIN') {
-    return (
-      <div className="rounded-lg bg-red-50 border border-red-200 p-8 text-center">
-        <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-        <h2 className="text-2xl font-bold text-red-900 mb-2">Access Denied</h2>
-        <p className="text-red-700">This page is restricted to administrators only.</p>
-      </div>
-    )
-  }
-
   // Fetch branches on mount
   useEffect(() => {
     fetchBranches()
   }, [])
+
+  // For STAFF: set default branch to their branch once branches load
+  useEffect(() => {
+    if (!isStaff || !userBranchId || branches.length === 0) return
+    const myBranch = branches.find(b => b.branch_id === userBranchId)
+    if (myBranch) {
+      setFilters(prev => (prev.branch === 'ALL' ? { ...prev, branch: myBranch.branch_code } : prev))
+    }
+  }, [branches, userBranchId, isStaff])
 
   // Auto-dismiss success/error messages
   useEffect(() => {
@@ -52,18 +56,28 @@ export default function AuctionReport() {
     }
   }, [error])
 
-  // Fetch branches
+  // Fetch branches - ADMIN uses admin API; STAFF/MANAGER use staff appointments branches
   const fetchBranches = async () => {
     try {
       setLoading(true)
-      const response = await apiService.request('/admin/branches', {
-        method: 'GET'
-      })
-
-      if (response.success) {
-        const activeBranches = (response.data || []).filter(b => b.status === 'ACTIVE')
-        setBranches(activeBranches)
+      let response
+      if (isAdmin) {
+        response = await apiService.request('/admin/branches', { method: 'GET' })
+        if (response.success) {
+          const activeBranches = (response.data || []).filter(b => b.status === 'ACTIVE')
+          setBranches(activeBranches)
+        }
       } else {
+        response = await apiService.getStaffAppointmentBranches()
+        if (response.success) {
+          let list = response.data || []
+          if (isStaff && userBranchId) {
+            list = list.filter(b => b.branch_id === userBranchId)
+          }
+          setBranches(list)
+        }
+      }
+      if (!response.success) {
         setError(response.message || 'Failed to load branches')
       }
     } catch (err) {
@@ -84,6 +98,71 @@ export default function AuctionReport() {
   const formatCurrency = (value) => {
     if (value === null || value === undefined) return 'Rs. 0.00'
     return `Rs. ${Number(value).toLocaleString('en-LK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  }
+
+  const getReminderLabel = (reminderLevel) => {
+    const levels = { 0: 'Not Started', 1: '1st Reminder', 2: '2nd Reminder', 3: '3rd Reminder' }
+    return levels[reminderLevel] || levels[0]
+  }
+
+  const handleExportPdf = () => {
+    if (!summary) return
+    const branchLabel = filters.branch === 'ALL' ? 'All Branches' : branches.find(b => b.branch_code === filters.branch)?.branch_name || filters.branch
+    const statusLabel = filters.status === 'ALL' ? 'All Status' : filters.status
+    exportToPdf({
+      title: 'Auction List Report',
+      subtitle: `${branchLabel} · ${statusLabel}`,
+      summaryRows: [
+        { label: 'Total Overdue Tickets', value: summary.totalOverdue || 0 },
+        { label: 'Eligible for Auction', value: summary.eligible || 0 },
+        { label: 'Auction Completed', value: summary.auctioned || 0 },
+        { label: 'Total Estimated Value', value: formatCurrency(summary.totalEstimatedValue) }
+      ],
+      tableHeaders: ['Receipt No', 'Customer Name', 'Branch', 'Loan Amount', 'Current Interest', 'Due Date', 'Days Overdue', 'Reminder', 'Auction Status', 'Est. Value'],
+      tableData: (reportData || []).map(r => [
+        r.receiptNo,
+        r.customerName,
+        r.branch || '',
+        formatCurrency(r.loanAmount),
+        formatCurrency(r.currentInterest),
+        new Date(r.dueDate).toLocaleDateString(),
+        `${r.daysOverdue} days`,
+        getReminderLabel(r.reminderLevel),
+        r.auctionStatus,
+        formatCurrency(r.estimatedValue)
+      ]),
+      filename: `auction-report-${new Date().toISOString().slice(0, 10)}.pdf`
+    })
+  }
+
+  const handleExportExcel = () => {
+    if (!summary) return
+    const branchLabel = filters.branch === 'ALL' ? 'All Branches' : branches.find(b => b.branch_code === filters.branch)?.branch_name || filters.branch
+    const statusLabel = filters.status === 'ALL' ? 'All Status' : filters.status
+    exportToExcel({
+      title: 'Auction List Report',
+      subtitle: `${branchLabel} · ${statusLabel}`,
+      summaryRows: [
+        { label: 'Total Overdue Tickets', value: summary.totalOverdue || 0 },
+        { label: 'Eligible for Auction', value: summary.eligible || 0 },
+        { label: 'Auction Completed', value: summary.auctioned || 0 },
+        { label: 'Total Estimated Value', value: formatCurrency(summary.totalEstimatedValue) }
+      ],
+      tableHeaders: ['Receipt No', 'Customer Name', 'Branch', 'Loan Amount', 'Current Interest', 'Due Date', 'Days Overdue', 'Reminder', 'Auction Status', 'Est. Value'],
+      tableData: (reportData || []).map(r => [
+        r.receiptNo,
+        r.customerName,
+        r.branch || '',
+        formatCurrency(r.loanAmount),
+        formatCurrency(r.currentInterest),
+        new Date(r.dueDate).toLocaleDateString(),
+        `${r.daysOverdue} days`,
+        getReminderLabel(r.reminderLevel),
+        r.auctionStatus,
+        formatCurrency(r.estimatedValue)
+      ]),
+      filename: `auction-report-${new Date().toISOString().slice(0, 10)}.xlsx`
+    })
   }
 
   // Get reminder badge
@@ -200,7 +279,7 @@ export default function AuctionReport() {
         </div>
 
         <div className="p-6">
-          <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-6 gap-4">
             {/* Branch Dropdown */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -213,7 +292,7 @@ export default function AuctionReport() {
                 disabled={reportLoading}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 disabled:bg-gray-50 disabled:cursor-not-allowed"
               >
-                <option value="ALL">All Branches</option>
+                {!isStaff && <option value="ALL">All Branches</option>}
                 {branches.map(b => (
                   <option key={b.branch_id} value={b.branch_code}>
                     {b.branch_code} - {b.branch_name}
@@ -279,14 +358,27 @@ export default function AuctionReport() {
               </button>
             </div>
 
-            {/* Export Button */}
+            {/* Export PDF */}
             <div className="flex items-end">
               <button
+                onClick={handleExportPdf}
                 disabled={!summary || reportLoading}
                 className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Download className="h-4 w-4" />
                 Export PDF
+              </button>
+            </div>
+
+            {/* Export Excel */}
+            <div className="flex items-end">
+              <button
+                onClick={handleExportExcel}
+                disabled={!summary || reportLoading}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Sheet className="h-4 w-4" />
+                Export Excel
               </button>
             </div>
           </div>

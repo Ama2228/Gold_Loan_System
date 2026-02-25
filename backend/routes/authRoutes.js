@@ -1,6 +1,6 @@
 const express = require('express');
 const { body } = require('express-validator');
-const { login, getMe, changePassword } = require('../controllers/authController');
+const { login, getMe, changePassword, registerLookup, register } = require('../controllers/authController');
 const { authenticate } = require('../middleware/auth');
 const validate = require('../middleware/validate');
 
@@ -17,6 +17,31 @@ router.post(
   ],
   validate,
   login
+);
+
+// @route   POST /api/v1/auth/register/lookup
+// @desc    Lookup customer by NIC for registration
+// @access  Public
+router.post(
+  '/register/lookup',
+  [body('nic').notEmpty().withMessage('NIC is required')],
+  validate,
+  registerLookup
+);
+
+// @route   POST /api/v1/auth/register
+// @desc    Complete registration - set password for pre-registered customer
+// @access  Public
+router.post(
+  '/register',
+  [
+    body('nic').notEmpty().withMessage('NIC is required'),
+    body('password')
+      .isLength({ min: 6 })
+      .withMessage('Password must be at least 6 characters')
+  ],
+  validate,
+  register
 );
 
 // @route   GET /api/v1/auth/me

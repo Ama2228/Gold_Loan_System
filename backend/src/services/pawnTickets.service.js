@@ -1,5 +1,6 @@
 const mysql = require('mysql2/promise');
 const { pool } = require('../../config/database');
+const paymentsService = require('./payments.service');
 
 /**
  * ========================================
@@ -127,6 +128,35 @@ class PawnTicketsService {
     const advanceAmount = (totalAdvance * interestPercentage) / 100;
     
     return Math.round(advanceAmount * 100) / 100; // Round to 2 decimals
+  }
+
+  /**
+   * Get all active karat advance rates (for staff metadata)
+   */
+  async getAllKaratRates() {
+    const [rows] = await pool.query(
+      `SELECT karat, advance_value_per_gram 
+       FROM karat_advance_rates 
+       WHERE is_active = 1 
+       ORDER BY karat`
+    );
+    return rows.map(r => ({
+      karat: r.karat,
+      advance_value_per_gram: parseFloat(r.advance_value_per_gram)
+    }));
+  }
+
+  /**
+   * Get all active pawning periods (for staff metadata)
+   */
+  async getAllPawningPeriods() {
+    const [rows] = await pool.query(
+      `SELECT period_id, period_name, duration_months 
+       FROM pawning_periods 
+       WHERE is_active = 1 
+       ORDER BY duration_months`
+    );
+    return rows;
   }
 
   /**
@@ -388,6 +418,118 @@ class PawnTicketsService {
   }
 
   /**
+   * GET TICKET BY RECEIPT NUMBER (with payment summary)
+   * Used for Part Payment, Renewal, Redemption flows
+   * @param {string} receiptNo - Receipt number (e.g. BRANCH-20260225-0001)
+   * @param {number} branchId - Optional branch filter
+   */
+  async getTicketByReceiptNo(receiptNo, branchId = null) {
+    if (!receiptNo || String(receiptNo).trim() === '') {
+      throw new Error('Receipt number is required');
+    }
+
+    const ticket = await this.getTicketByIdFromReceipt(receiptNo, branchId);
+    if (!ticket) {
+      throw new Error('Ticket not found');
+    }
+
+    let paymentSummary = null;
+    if (['ACTIVE', 'RENEWED', 'OVERDUE'].includes(ticket.status)) {
+      try {
+        paymentSummary = await paymentsService.getTicketPaymentSummary(ticket.ticket_id);
+      } catch (e) {
+        // Ticket may be closed; paymentSummary stays null
+      }
+    }
+
+    return {
+      ...ticket,
+      payment_summary: paymentSummary
+    };
+  }
+
+  /**
+   * Internal: get ticket by receipt without payment summary
+   */
+  async getTicketByIdFromReceipt(receiptNo, branchId) {
+    let whereClause = "pt.receipt_no = ? AND pt.status != 'REVERSED'";
+    const params = [receiptNo.trim()];
+    if (branchId) {
+      whereClause += ' AND pt.branch_id = ?';
+      params.push(branchId);
+    }
+
+    const query = `
+      SELECT 
+        pt.ticket_id, pt.receipt_no, pt.branch_id, pt.customer_id,
+        pt.issue_date, pt.due_date, pt.loan_amount, pt.annual_interest_rate,
+        pt.interest_type, pt.status, pt.closed_date,
+        b.branch_name, b.branch_code,
+        cp.customer_id, u.full_name as customer_name, u.nic as customer_nic,
+        u2.full_name as staff_name,
+        GROUP_CONCAT(
+          JSON_OBJECT(
+            'article_id', ga.article_id,
+            'item_type', ga.item_type,
+            'quantity', ga.quantity,
+            'gross_weight_grams', ga.gross_weight_grams,
+            'net_weight_grams', ga.net_weight_grams,
+            'purity_karat', ga.purity_karat,
+            'assessed_value', ga.assessed_value,
+            'notes', ga.notes
+          )
+        ) as articles
+      FROM pawn_tickets pt
+      INNER JOIN branches b ON pt.branch_id = b.branch_id
+      INNER JOIN customer_profiles cp ON pt.customer_id = cp.customer_id
+      INNER JOIN users u ON cp.customer_id = u.user_id
+      INNER JOIN staff_profiles sp ON pt.created_by_staff_id = sp.staff_id
+      INNER JOIN users u2 ON sp.staff_id = u2.user_id
+      LEFT JOIN gold_articles ga ON pt.ticket_id = ga.ticket_id
+      WHERE ${whereClause}
+      GROUP BY pt.ticket_id
+    `;
+
+    const [rows] = await pool.query(query, params);
+    if (rows.length === 0) return null;
+
+    const ticket = rows[0];
+    let articles = [];
+    if (ticket.articles) {
+      try {
+        articles = JSON.parse(`[${ticket.articles}]`);
+      } catch (e) {
+        articles = [];
+      }
+    }
+
+    return {
+      ticket_id: ticket.ticket_id,
+      receipt_no: ticket.receipt_no,
+      customer: {
+        customer_id: ticket.customer_id,
+        name: ticket.customer_name,
+        nic: ticket.customer_nic
+      },
+      branch: {
+        branch_id: ticket.branch_id,
+        name: ticket.branch_name,
+        code: ticket.branch_code
+      },
+      staff_created_by: ticket.staff_name,
+      issue_date: ticket.issue_date,
+      due_date: ticket.due_date,
+      loan_amount: parseFloat(ticket.loan_amount),
+      annual_interest_rate: parseFloat(ticket.annual_interest_rate),
+      interest_type: ticket.interest_type || 'MONTHLY',
+      status: ticket.status,
+      closed_date: ticket.closed_date,
+      articles_count: articles.length,
+      articles: articles
+    };
+  }
+
+  /**
    * GET TICKET DETAILS
    * Join with articles, customer, branch, staff
    */
@@ -473,7 +615,7 @@ class PawnTicketsService {
     const { page = 1, limit = 10, status = null, customerId = null } = filters;
     const offset = (page - 1) * limit;
 
-    let whereConditions = ['pt.branch_id = ?'];
+    let whereConditions = ['pt.branch_id = ?', "pt.status != 'REVERSED'"];
     const params = [branchId];
 
     if (status) {
@@ -534,10 +676,19 @@ class PawnTicketsService {
 
   /**
    * SEARCH PAWN TICKETS
+   * @param {boolean} options.reversibleOnly - If true, only return tickets issued today (for reverse pawning)
    */
-  async searchTickets(branchId, searchTerm) {
+  async searchTickets(branchId, searchTerm, options = {}) {
     if (!searchTerm || searchTerm.length < 2) {
       throw new Error('Search term must be at least 2 characters');
+    }
+
+    let extraWhere = '';
+    const params = [branchId];
+    if (options.reversibleOnly) {
+      extraWhere = ' AND pt.issue_date = CURDATE() AND pt.status IN (\'ACTIVE\', \'RENEWED\', \'OVERDUE\')';
+    } else {
+      extraWhere = ' AND pt.status != \'REVERSED\'';
     }
 
     const query = `
@@ -552,13 +703,15 @@ class PawnTicketsService {
       LEFT JOIN gold_articles ga ON pt.ticket_id = ga.ticket_id
       WHERE pt.branch_id = ?
         AND (pt.receipt_no LIKE ? OR u.full_name LIKE ? OR u.nic LIKE ?)
+        ${extraWhere}
       GROUP BY pt.ticket_id
       ORDER BY pt.issue_date DESC
       LIMIT 10
     `;
 
     const searchPattern = `%${searchTerm}%`;
-    const [tickets] = await pool.query(query, [branchId, searchPattern, searchPattern, searchPattern]);
+    params.push(searchPattern, searchPattern, searchPattern);
+    const [tickets] = await pool.query(query, params);
 
     return tickets.map(t => ({
       ticket_id: t.ticket_id,

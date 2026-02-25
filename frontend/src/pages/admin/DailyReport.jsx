@@ -1,18 +1,24 @@
 import { useState, useEffect } from 'react'
-import { AlertCircle, Loader, Calendar, Download, TrendingUp, DollarSign, FileText } from 'lucide-react'
+import { AlertCircle, Loader, Calendar, Download, TrendingUp, DollarSign, FileText, Sheet } from 'lucide-react'
 import apiService from '../../services/api'
+import { exportToPdf, exportToExcel } from '../../utils/reportExport'
 
 export default function DailyReport() {
-  const userRole = sessionStorage.getItem('userRole')
+  const userRole = sessionStorage.getItem('userRole') || 'STAFF'
+  const userStr = localStorage.getItem('user')
+  const userBranchId = userStr ? (JSON.parse(userStr)?.branchId ?? null) : null
+  const isStaff = userRole === 'STAFF'
+  const isAdmin = userRole === 'ADMIN'
+
   const [branches, setBranches] = useState([])
   const [loading, setLoading] = useState(false)
   const [reportLoading, setReportLoading] = useState(false)
   const [error, setError] = useState(null)
   const [success, setSuccess] = useState(null)
 
-  // Filter state
+  // Filter state - STAFF defaults to their branch; others to ALL
   const [filters, setFilters] = useState({
-    branch: '0000', // 0000 = all branches
+    branch: 'ALL',
     date: new Date().toISOString().split('T')[0]
   })
 
@@ -20,21 +26,19 @@ export default function DailyReport() {
   const [reportData, setReportData] = useState(null)
   const [summary, setSummary] = useState(null)
 
-  // Role guard
-  if (userRole !== 'ADMIN') {
-    return (
-      <div className="rounded-lg bg-red-50 border border-red-200 p-8 text-center">
-        <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-        <h2 className="text-2xl font-bold text-red-900 mb-2">Access Denied</h2>
-        <p className="text-red-700">This page is restricted to administrators only.</p>
-      </div>
-    )
-  }
-
   // Fetch branches on mount
   useEffect(() => {
     fetchBranches()
   }, [])
+
+  // For STAFF: set default branch to their branch once branches load
+  useEffect(() => {
+    if (!isStaff || !userBranchId || branches.length === 0) return
+    const myBranch = branches.find(b => b.branch_id === userBranchId)
+    if (myBranch) {
+      setFilters(prev => (prev.branch === 'ALL' ? { ...prev, branch: myBranch.branch_code } : prev))
+    }
+  }, [branches, userBranchId, isStaff])
 
   // Auto-dismiss success/error messages
   useEffect(() => {
@@ -51,18 +55,28 @@ export default function DailyReport() {
     }
   }, [error])
 
-  // Fetch branches
+  // Fetch branches - ADMIN uses admin API; STAFF/MANAGER use staff appointments branches
   const fetchBranches = async () => {
     try {
       setLoading(true)
-      const response = await apiService.request('/admin/branches', {
-        method: 'GET'
-      })
-
-      if (response.success) {
-        const activeBranches = (response.data || []).filter(b => b.status === 'ACTIVE')
-        setBranches(activeBranches)
+      let response
+      if (isAdmin) {
+        response = await apiService.request('/admin/branches', { method: 'GET' })
+        if (response.success) {
+          const activeBranches = (response.data || []).filter(b => b.status === 'ACTIVE')
+          setBranches(activeBranches)
+        }
       } else {
+        response = await apiService.getStaffAppointmentBranches()
+        if (response.success) {
+          let list = response.data || []
+          if (isStaff && userBranchId) {
+            list = list.filter(b => b.branch_id === userBranchId)
+          }
+          setBranches(list)
+        }
+      }
+      if (!response.success) {
         setError(response.message || 'Failed to load branches')
       }
     } catch (err) {
@@ -122,6 +136,58 @@ export default function DailyReport() {
     } finally {
       setReportLoading(false)
     }
+  }
+
+  const handleExportPdf = () => {
+    if (!summary || !reportData) return
+    const branchLabel = filters.branch === 'ALL' ? 'All Branches' : branches.find(b => b.branch_code === filters.branch)?.branch_name || filters.branch
+    exportToPdf({
+      title: 'Daily Report',
+      subtitle: `Report for ${formatDate(filters.date)} - ${branchLabel}`,
+      summaryRows: [
+        { label: 'Total Pawn Tickets', value: summary.totalTickets || 0 },
+        { label: 'Total Payments', value: summary.totalPayments || 0 },
+        { label: 'Total Interest Collected', value: formatCurrency(summary.totalInterest) },
+        { label: 'Total Loan Issued', value: formatCurrency(summary.totalLoanIssued) }
+      ],
+      tableHeaders: ['Receipt No', 'Customer Name', 'Loan Amount', 'Interest Paid', 'Payment Type', 'Status', 'Branch'],
+      tableData: reportData.map(r => [
+        r.receiptNo,
+        r.customerName,
+        formatCurrency(r.loanAmount),
+        formatCurrency(r.interestPaid),
+        r.paymentType || 'NONE',
+        r.status,
+        r.branch || ''
+      ]),
+      filename: `daily-report-${filters.date}.pdf`
+    })
+  }
+
+  const handleExportExcel = () => {
+    if (!summary || !reportData) return
+    const branchLabel = filters.branch === 'ALL' ? 'All Branches' : branches.find(b => b.branch_code === filters.branch)?.branch_name || filters.branch
+    exportToExcel({
+      title: 'Daily Report',
+      subtitle: `Report for ${formatDate(filters.date)} - ${branchLabel}`,
+      summaryRows: [
+        { label: 'Total Pawn Tickets', value: summary.totalTickets || 0 },
+        { label: 'Total Payments', value: summary.totalPayments || 0 },
+        { label: 'Total Interest Collected', value: formatCurrency(summary.totalInterest) },
+        { label: 'Total Loan Issued', value: formatCurrency(summary.totalLoanIssued) }
+      ],
+      tableHeaders: ['Receipt No', 'Customer Name', 'Loan Amount', 'Interest Paid', 'Payment Type', 'Status', 'Branch'],
+      tableData: reportData.map(r => [
+        r.receiptNo,
+        r.customerName,
+        formatCurrency(r.loanAmount),
+        formatCurrency(r.interestPaid),
+        r.paymentType || 'NONE',
+        r.status,
+        r.branch || ''
+      ]),
+      filename: `daily-report-${filters.date}.xlsx`
+    })
   }
 
   // Summary Card Component
@@ -189,7 +255,7 @@ export default function DailyReport() {
                 disabled={reportLoading}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 disabled:bg-gray-50 disabled:cursor-not-allowed"
               >
-                <option value="0000">All Branches</option>
+                {!isStaff && <option value="ALL">All Branches</option>}
                 {branches.map(b => (
                   <option key={b.branch_id} value={b.branch_code}>
                     {b.branch_code} - {b.branch_name}
@@ -231,6 +297,30 @@ export default function DailyReport() {
                     Generate Report
                   </>
                 )}
+              </button>
+            </div>
+
+            {/* Export PDF */}
+            <div className="flex items-end">
+              <button
+                onClick={handleExportPdf}
+                disabled={!summary || reportLoading}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Download className="h-4 w-4" />
+                Export PDF
+              </button>
+            </div>
+
+            {/* Export Excel */}
+            <div className="flex items-end">
+              <button
+                onClick={handleExportExcel}
+                disabled={!summary || reportLoading}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Sheet className="h-4 w-4" />
+                Export Excel
               </button>
             </div>
           </div>
@@ -275,7 +365,7 @@ export default function DailyReport() {
               Transaction Details ({reportData.length})
             </h2>
             <p className="text-sm text-gray-600 mt-1">
-              Report for {formatDate(filters.date)} - {filters.branch === '0000' ? 'All Branches' : branches.find(b => b.branch_code === filters.branch)?.branch_name}
+              Report for {formatDate(filters.date)} - {filters.branch === 'ALL' ? 'All Branches' : branches.find(b => b.branch_code === filters.branch)?.branch_name}
             </p>
           </div>
 

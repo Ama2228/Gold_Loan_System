@@ -5,6 +5,7 @@ const {
   createCustomer,
   listCustomers,
   getCustomerById,
+  getCustomerInquiry,
   updateCustomer,
   deleteCustomer,
   searchCustomers,
@@ -44,6 +45,11 @@ router.get('/meta/districts', getDistricts);
 // @access  Private/Staff/Manager
 router.get('/search', searchCustomers);
 router.get('/search/:query', searchCustomers);
+
+// @route   GET /api/v1/staff/customers/:customerId/inquiry
+// @desc    Get customer inquiry summary (profile + tickets + transactions)
+// @access  Private/Staff/Manager
+router.get('/:customerId/inquiry', getCustomerInquiry);
 
 // @route   GET /api/v1/staff/customers/:customerId
 // @desc    Get customer by ID

@@ -1,164 +1,58 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Search, LogOut } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
+import { Search } from 'lucide-react'
+import api from '../../services/api'
+import CustomerHeader from '../../components/CustomerHeader'
 
 export default function MyReceipts() {
   const navigate = useNavigate()
+  const location = useLocation()
   const [searchQuery, setSearchQuery] = useState('')
-  const [selectedReceiptId, setSelectedReceiptId] = useState(null)
-  const [isProfileOpen, setIsProfileOpen] = useState(false)
+  const [selectedReceiptNo, setSelectedReceiptNo] = useState(location.state?.selectedReceiptNo ?? null)
+  const [receipts, setReceipts] = useState([])
+  const [selectedDetail, setSelectedDetail] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [detailLoading, setDetailLoading] = useState(false)
+  const [error, setError] = useState(null)
 
-  // Dummy data for active receipts
-  const receipts = [
-    {
-      id: '0001-25000001',
-      branchCode: 'COL-001',
-      loanAmount: 700000,
-      interestRate: 15,
-      issueDate: '2025-08-05',
-      dueDate: '2026-02-05',
-      status: 'Active',
-      articles: [
-        { type: 'Gold Chain', karat: 22, weight: 45.5, value: 450000 },
-        { type: 'Gold Ring', karat: 18, weight: 8.2, value: 250000 }
-      ],
-      payments: [
-        { date: '2026-02-08', type: 'Part', amount: 15000, method: 'Cash' },
-        { date: '2026-01-15', type: 'Part', amount: 10000, method: 'Card' }
-      ]
-    },
-    {
-      id: '0002-25000012',
-      branchCode: 'KDY-002',
-      loanAmount: 450000,
-      interestRate: 15,
-      issueDate: '2025-07-26',
-      dueDate: '2026-01-26',
-      status: 'Overdue',
-      articles: [
-        { type: 'Gold Bangle', karat: 22, weight: 32.0, value: 320000 },
-        { type: 'Gold Earrings', karat: 18, weight: 5.0, value: 130000 }
-      ],
-      payments: [
-        { date: '2025-12-20', type: 'Part', amount: 5000, method: 'Cash' }
-      ]
-    },
-    {
-      id: '0003-25000023',
-      branchCode: 'COL-001',
-      loanAmount: 550000,
-      interestRate: 15,
-      issueDate: '2025-09-10',
-      dueDate: '2026-03-10',
-      status: 'Active',
-      articles: [
-        { type: 'Gold Necklace', karat: 22, weight: 55.0, value: 550000 }
-      ],
-      payments: [
-        { date: '2026-02-05', type: 'Interest', amount: 6875, method: 'Bank Transfer' },
-        { date: '2026-01-05', type: 'Interest', amount: 6875, method: 'Bank Transfer' }
-      ]
+  useEffect(() => {
+    async function load() {
+      setLoading(true)
+      setError(null)
+      try {
+        const res = await api.getCustomerReceipts()
+        setReceipts(res.data || [])
+      } catch (err) {
+        setError(err.message || 'Failed to load receipts')
+      } finally {
+        setLoading(false)
+      }
     }
-  ]
+    load()
+  }, [])
 
-  // Filter active receipts
-  const activeReceipts = receipts.filter(r => r.status === 'Active')
+  useEffect(() => {
+    if (!selectedReceiptNo) {
+      setSelectedDetail(null)
+      return
+    }
+    setDetailLoading(true)
+    api.getCustomerReceiptDetail(selectedReceiptNo)
+      .then(res => {
+        if (res.success && res.data) setSelectedDetail(res.data)
+        else setSelectedDetail(null)
+      })
+      .catch(() => setSelectedDetail(null))
+      .finally(() => setDetailLoading(false))
+  }, [selectedReceiptNo])
 
-  // Filter by search query
-  const filteredReceipts = activeReceipts.filter(r =>
-    r.id.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredReceipts = receipts.filter(r =>
+    String(r.receipt_no || '').toLowerCase().includes(searchQuery.toLowerCase())
   )
-
-  // Get selected receipt details
-  const selectedReceipt = receipts.find(r => r.id === selectedReceiptId)
 
   return (
     <div className="min-h-screen bg-gray-100">
-      {/* Top Navigation Bar */}
-      <nav className="sticky top-0 z-50 bg-gradient-to-r from-yellow-500 to-yellow-600 shadow-lg">
-        <div className="max-w-[1400px] mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-black font-bold text-yellow-400 shadow-md">
-                SG
-              </div>
-              <div>
-                <h1 className="text-lg font-bold text-black">Smart Gold</h1>
-                <p className="text-xs text-black/70">Customer Dashboard</p>
-              </div>
-            </div>
-
-            <nav className="hidden md:flex items-center gap-3 text-sm font-semibold text-black">
-              <button
-                onClick={() => navigate('/customer')}
-                className="rounded-md px-3 py-2 transition-all hover:bg-yellow-700/50"
-              >
-                Overview
-              </button>
-              <span className="text-black/40">|</span>
-              <button className="rounded-md px-3 py-2 transition-all hover:bg-yellow-700/50 bg-yellow-700/50">
-                My Receipts
-              </button>
-              <span className="text-black/40">|</span>
-              <button className="rounded-md px-3 py-2 transition-all hover:bg-yellow-700/50">
-                Appointments
-              </button>
-              <span className="text-black/40">|</span>
-              <button className="rounded-md px-3 py-2 transition-all hover:bg-yellow-700/50">
-                Notifications
-              </button>
-            </nav>
-
-            <div className="flex items-center gap-4">
-              <div className="relative">
-                <button
-                  onClick={() => setIsProfileOpen(prev => !prev)}
-                  className="rounded-full bg-black/20 px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-black/30"
-                >
-                  Profile
-                </button>
-                {isProfileOpen && (
-                  <div className="absolute right-0 mt-2 w-80 rounded-lg border border-gray-200 bg-white shadow-lg">
-                    <div className="border-b border-gray-100 px-4 py-3">
-                      <p className="text-sm font-semibold text-gray-900">Profile Details</p>
-                    </div>
-                    <div className="space-y-3 px-4 py-4">
-                      <div>
-                        <label className="block text-xs font-semibold text-gray-600 mb-1">
-                          Customer Name
-                        </label>
-                        <input
-                          type="text"
-                          defaultValue="Customer Name"
-                          className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm"
-                          readOnly
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-semibold text-gray-600 mb-1">
-                          Customer ID
-                        </label>
-                        <input
-                          type="text"
-                          defaultValue="CUS001"
-                          className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm"
-                          readOnly
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-              <button
-                onClick={() => navigate('/login')}
-                className="rounded-md bg-red-500 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-600"
-              >
-                Logout
-              </button>
-            </div>
-          </div>
-        </div>
-      </nav>
+      <CustomerHeader />
 
       <main className="px-6 py-8">
         <div className="max-w-[1400px] mx-auto">
@@ -193,21 +87,25 @@ export default function MyReceipts() {
 
                 {/* Receipts List */}
                 <div className="space-y-2 max-h-[600px] overflow-y-auto">
-                  {filteredReceipts.length > 0 ? (
+                  {loading ? (
+                    <p className="text-sm text-gray-600 text-center py-4">Loading receipts...</p>
+                  ) : error ? (
+                    <p className="text-sm text-red-600 text-center py-4">{error}</p>
+                  ) : filteredReceipts.length > 0 ? (
                     filteredReceipts.map((receipt) => (
                       <button
-                        key={receipt.id}
-                        onClick={() => setSelectedReceiptId(receipt.id)}
+                        key={receipt.ticket_id || receipt.receipt_no}
+                        onClick={() => setSelectedReceiptNo(receipt.receipt_no)}
                         className={`w-full text-left rounded-lg p-4 border-2 transition-all ${
-                          selectedReceiptId === receipt.id
+                          selectedReceiptNo === receipt.receipt_no
                             ? 'border-yellow-500 bg-yellow-50'
                             : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
                         }`}
                       >
                         <div className="flex items-start justify-between mb-2">
-                          <p className="font-bold text-gray-900">{receipt.id}</p>
+                          <p className="font-bold text-gray-900">{receipt.receipt_no}</p>
                           <span className={`text-xs font-semibold px-2 py-1 rounded ${
-                            receipt.status === 'Active'
+                            receipt.status === 'ACTIVE' || receipt.status === 'RENEWED'
                               ? 'bg-green-100 text-green-700'
                               : 'bg-red-100 text-red-700'
                           }`}>
@@ -217,11 +115,11 @@ export default function MyReceipts() {
                         <div className="grid grid-cols-2 gap-2 text-sm">
                           <div>
                             <p className="text-gray-600">Amount</p>
-                            <p className="font-semibold text-gray-900">Rs. {receipt.loanAmount.toLocaleString()}</p>
+                            <p className="font-semibold text-gray-900">Rs. {Number(receipt.loan_amount).toLocaleString()}</p>
                           </div>
                           <div>
                             <p className="text-gray-600">Due Date</p>
-                            <p className="font-semibold text-gray-900">{receipt.dueDate}</p>
+                            <p className="font-semibold text-gray-900">{String(receipt.due_date).slice(0, 10)}</p>
                           </div>
                         </div>
                       </button>
@@ -237,7 +135,11 @@ export default function MyReceipts() {
 
             {/* Right Column: Receipt Details */}
             <div className="rounded-lg bg-white shadow-sm border border-gray-200 p-6">
-              {selectedReceipt ? (
+              {detailLoading ? (
+                <div className="flex items-center justify-center h-96">
+                  <p className="text-gray-600">Loading receipt details...</p>
+                </div>
+              ) : selectedDetail?.receipt ? (
                 <div className="space-y-6">
                   <div>
                     <h3 className="text-lg font-bold text-gray-900 mb-4">Receipt Details</h3>
@@ -245,27 +147,27 @@ export default function MyReceipts() {
                       <div className="grid grid-cols-2 gap-4">
                         <div>
                           <p className="text-xs font-semibold text-gray-600 uppercase">Receipt No</p>
-                          <p className="text-lg font-bold text-gray-900">{selectedReceipt.id}</p>
+                          <p className="text-lg font-bold text-gray-900">{selectedDetail.receipt.receipt_no}</p>
                         </div>
                         <div>
                           <p className="text-xs font-semibold text-gray-600 uppercase">Branch Code</p>
-                          <p className="text-lg font-bold text-gray-900">{selectedReceipt.branchCode}</p>
+                          <p className="text-lg font-bold text-gray-900">{selectedDetail.receipt.branch_code || '-'}</p>
                         </div>
                         <div>
                           <p className="text-xs font-semibold text-gray-600 uppercase">Loan Amount</p>
-                          <p className="text-lg font-bold text-yellow-600">Rs. {selectedReceipt.loanAmount.toLocaleString()}</p>
+                          <p className="text-lg font-bold text-yellow-600">Rs. {Number(selectedDetail.receipt.loan_amount).toLocaleString()}</p>
                         </div>
                         <div>
                           <p className="text-xs font-semibold text-gray-600 uppercase">Interest Rate</p>
-                          <p className="text-lg font-bold text-gray-900">{selectedReceipt.interestRate}% p.a.</p>
+                          <p className="text-lg font-bold text-gray-900">{selectedDetail.receipt.annual_interest_rate || 0}% p.a.</p>
                         </div>
                         <div>
                           <p className="text-xs font-semibold text-gray-600 uppercase">Issue Date</p>
-                          <p className="text-lg font-bold text-gray-900">{selectedReceipt.issueDate}</p>
+                          <p className="text-lg font-bold text-gray-900">{String(selectedDetail.receipt.issue_date).slice(0, 10)}</p>
                         </div>
                         <div>
                           <p className="text-xs font-semibold text-gray-600 uppercase">Due Date</p>
-                          <p className="text-lg font-bold text-gray-900">{selectedReceipt.dueDate}</p>
+                          <p className="text-lg font-bold text-gray-900">{String(selectedDetail.receipt.due_date).slice(0, 10)}</p>
                         </div>
                       </div>
                     </div>
@@ -285,13 +187,13 @@ export default function MyReceipts() {
                           </tr>
                         </thead>
                         <tbody>
-                          {selectedReceipt.articles.map((article, idx) => (
+                          {(selectedDetail.goldArticles || []).map((article, idx) => (
                             <tr key={idx} className="border-b border-gray-200 hover:bg-gray-50">
-                              <td className="py-3 px-3 text-gray-900">{article.type}</td>
-                              <td className="py-3 px-3 text-gray-900">{article.karat}</td>
-                              <td className="py-3 px-3 text-right text-gray-900">{article.weight}</td>
+                              <td className="py-3 px-3 text-gray-900">{article.article_description || article.item_type}</td>
+                              <td className="py-3 px-3 text-gray-900">{article.purity_karats || article.purity_karat}</td>
+                              <td className="py-3 px-3 text-right text-gray-900">{article.weight_grams || article.net_weight_grams}</td>
                               <td className="py-3 px-3 text-right font-semibold text-gray-900">
-                                {article.value.toLocaleString()}
+                                {(article.assessed_value ?? article.appraised_value ?? 0).toLocaleString()}
                               </td>
                             </tr>
                           ))}
@@ -314,24 +216,24 @@ export default function MyReceipts() {
                           </tr>
                         </thead>
                         <tbody>
-                          {selectedReceipt.payments.map((payment, idx) => (
+                          {(selectedDetail.payments || []).map((payment, idx) => (
                             <tr key={idx} className="border-b border-gray-200 hover:bg-gray-50">
-                              <td className="py-3 px-3 text-gray-900">{payment.date}</td>
+                              <td className="py-3 px-3 text-gray-900">{String(payment.payment_date).slice(0, 10)}</td>
                               <td className="py-3 px-3">
                                 <span className={`text-xs font-bold px-2 py-1 rounded ${
-                                  payment.type === 'Part'
+                                  payment.payment_type === 'PART'
                                     ? 'bg-blue-100 text-blue-700'
-                                    : payment.type === 'Interest'
+                                    : payment.payment_type === 'INTEREST'
                                     ? 'bg-purple-100 text-purple-700'
                                     : 'bg-green-100 text-green-700'
                                 }`}>
-                                  {payment.type}
+                                  {payment.payment_type}
                                 </span>
                               </td>
                               <td className="py-3 px-3 text-right font-semibold text-gray-900">
-                                {payment.amount.toLocaleString()}
+                                {Number(payment.payment_amount).toLocaleString()}
                               </td>
-                              <td className="py-3 px-3 text-gray-600">{payment.method}</td>
+                              <td className="py-3 px-3 text-gray-600">{payment.payment_method}</td>
                             </tr>
                           ))}
                         </tbody>

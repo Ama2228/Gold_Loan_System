@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { ChevronDown, LogOut } from 'lucide-react'
 
 const staffNavItems = [
@@ -42,13 +42,19 @@ const staffNavItems = [
   {
     label: 'Reports',
     submenu: [
+      { label: 'Daily Reports', path: '/staff/reports/daily' },
       { label: 'Monthly Reports', path: '/staff/reports/monthly' },
-      { label: 'Daily Reports', path: '/staff/reports/daily' }
+      { label: 'Auction Report', path: '/staff/reports/auction' }
     ]
   }
 ]
 
 const managerNavItems = [
+  {
+    label: 'Dashboard',
+    path: '/manager/dashboard',
+    submenu: null
+  },
   {
     label: 'Transactions',
     submenu: [
@@ -94,8 +100,9 @@ const managerNavItems = [
   {
     label: 'Reports',
     submenu: [
+      { label: 'Daily Reports', path: '/staff/reports/daily' },
       { label: 'Monthly Reports', path: '/staff/reports/monthly' },
-      { label: 'Daily Reports', path: '/staff/reports/daily' }
+      { label: 'Auction Report', path: '/staff/reports/auction' }
     ]
   }
 ]
@@ -136,16 +143,30 @@ const adminNavItems = [
 
 export default function DashboardLayout() {
   const navigate = useNavigate()
+  const location = useLocation()
   const [openDropdown, setOpenDropdown] = useState(null)
   const userRole = sessionStorage.getItem('userRole') || 'STAFF'
   const userName = sessionStorage.getItem('userName') || 'User'
-  
+
+  // Route guard: /manager/* only accessible by MANAGER
+  useEffect(() => {
+    if (location.pathname.startsWith('/manager') && userRole !== 'MANAGER') {
+      if (userRole === 'STAFF') {
+        navigate('/staff/transactions/new', { replace: true })
+      } else if (userRole === 'ADMIN') {
+        navigate('/admin/dashboard', { replace: true })
+      } else {
+        navigate('/login', { replace: true })
+      }
+    }
+  }, [location.pathname, userRole, navigate])
+
   // Use different nav items based on role
   const navItems = userRole === 'ADMIN' ? adminNavItems : userRole === 'MANAGER' ? managerNavItems : staffNavItems
 
   const handleLogout = () => {
     sessionStorage.removeItem('userRole')
-    sessionStorage.removeItem('userNic')
+    sessionStorage.removeItem('userNIC')
     sessionStorage.removeItem('userName')
     localStorage.removeItem('token')
     navigate('/login')
@@ -172,7 +193,7 @@ export default function DashboardLayout() {
               </div>
               <div>
                 <h1 className="text-xl font-bold text-black">Smart Gold</h1>
-                <p className="text-xs text-black/70">{userRole === 'ADMIN' ? 'Head Office Control Panel' : 'Pawning Assistant Dashboard'}</p>
+                <p className="text-xs text-black/70">{userRole === 'ADMIN' ? 'Head Office Control Panel' : userRole === 'MANAGER' ? 'Manager Dashboard' : 'Pawning Assistant Dashboard'}</p>
               </div>
             </div>
 

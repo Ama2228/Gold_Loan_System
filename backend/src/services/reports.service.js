@@ -32,7 +32,7 @@ const getDailyReport = async (date, branch = 'ALL') => {
       FROM pawn_tickets t
       JOIN branches b ON t.branch_id = b.branch_id
       LEFT JOIN payments p ON t.ticket_id = p.ticket_id AND DATE(p.payment_date) = ?
-      WHERE DATE(t.issue_date) = ?
+      WHERE DATE(t.issue_date) = ? AND t.status != 'REVERSED'
       ${branchWhereClause}
     `;
 
@@ -54,7 +54,7 @@ const getDailyReport = async (date, branch = 'ALL') => {
       JOIN users u ON c.customer_id = u.user_id
       JOIN branches b ON t.branch_id = b.branch_id
       LEFT JOIN payments p ON t.ticket_id = p.ticket_id AND DATE(p.payment_date) = ?
-      WHERE DATE(t.issue_date) = ?
+      WHERE DATE(t.issue_date) = ? AND t.status != 'REVERSED'
       ${branchWhereClause}
       GROUP BY t.ticket_id, t.receipt_no, u.full_name, t.loan_amount, t.status, b.branch_code
       ORDER BY t.receipt_no
@@ -120,7 +120,7 @@ const getMonthlyReport = async (month, branch = 'ALL') => {
       JOIN branches br ON t.branch_id = br.branch_id
       LEFT JOIN payments p ON t.ticket_id = p.ticket_id AND DATE_FORMAT(p.payment_date, '%Y-%m') = ?
       LEFT JOIN redeems r ON t.ticket_id = r.ticket_id
-      WHERE DATE_FORMAT(t.issue_date, '%Y-%m') = ?
+      WHERE DATE_FORMAT(t.issue_date, '%Y-%m') = ? AND t.status != 'REVERSED'
       ${branchWhereClause}
     `;
 
@@ -139,7 +139,7 @@ const getMonthlyReport = async (month, branch = 'ALL') => {
       FROM pawn_tickets t
       JOIN branches br ON t.branch_id = br.branch_id
       LEFT JOIN payments p ON t.ticket_id = p.ticket_id AND DATE_FORMAT(p.payment_date, '%Y-%m') = ?
-      WHERE DATE_FORMAT(t.issue_date, '%Y-%m') = ?
+      WHERE DATE_FORMAT(t.issue_date, '%Y-%m') = ? AND t.status != 'REVERSED'
       ${branchWhereClause}
       GROUP BY br.branch_id, br.branch_code
       ORDER BY br.branch_code
@@ -164,7 +164,7 @@ const getMonthlyReport = async (month, branch = 'ALL') => {
       JOIN users u ON c.customer_id = u.user_id
       JOIN branches br ON t.branch_id = br.branch_id
       LEFT JOIN payments p ON t.ticket_id = p.ticket_id
-      WHERE DATE_FORMAT(t.issue_date, '%Y-%m') = ?
+      WHERE DATE_FORMAT(t.issue_date, '%Y-%m') = ? AND t.status != 'REVERSED'
       ${branchWhereClause}
       GROUP BY t.ticket_id, t.receipt_no, u.full_name, t.issue_date, t.due_date, t.loan_amount, t.status, br.branch_code
       ORDER BY t.receipt_no

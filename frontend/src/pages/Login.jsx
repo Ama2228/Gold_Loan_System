@@ -37,7 +37,7 @@ export default function Login() {
         } else if (primaryRole === 'STAFF') {
           navigate('/login-as')
         } else if (primaryRole === 'CUSTOMER') {
-          navigate('/customer/dashboard')
+          navigate('/customer')
         } else {
           navigate('/dashboard')
         }

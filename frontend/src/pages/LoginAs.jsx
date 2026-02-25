@@ -5,7 +5,7 @@ import apiService from '../services/api'
 export default function LoginAs() {
   const navigate = useNavigate()
   const userRole = sessionStorage.getItem('userRole')
-  const userNic = sessionStorage.getItem('userNic')
+  const userNic = sessionStorage.getItem('userNIC')
 
   const handleStaffLogin = () => {
     // If user is a MANAGER, route to manager dashboard

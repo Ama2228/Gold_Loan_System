@@ -2,6 +2,7 @@ const express = require('express');
 const { authenticate: protect } = require('../../middleware/auth');
 const { authorize: requireRole } = require('../../middleware/auth');
 const pawnTicketsController = require('../controllers/pawnTickets.controller');
+const paymentsController = require('../controllers/payments.controller');
 
 /**
  * ========================================
@@ -17,6 +18,17 @@ const router = express.Router();
 router.use(protect);
 router.use(requireRole('STAFF', 'MANAGER'));
 
+// ========== METADATA (must be before parameterized routes) ==========
+router.get('/meta/karat-rates', pawnTicketsController.getKaratRates);
+router.get('/meta/pawning-periods', pawnTicketsController.getPawningPeriods);
+
+// ========== GET TICKET BY RECEIPT (must be before :ticketId) ==========
+/**
+ * GET /api/v1/staff/pawn-tickets/by-receipt/:receiptNo
+ * Get ticket with payment summary for Part Payment, Renewal, Redemption
+ */
+router.get('/by-receipt/:receiptNo', pawnTicketsController.getTicketByReceipt);
+
 // ========== POST - CREATE PAWN TICKET ==========
 /**
  * POST /api/v1/staff/pawn-tickets
@@ -24,6 +36,16 @@ router.use(requireRole('STAFF', 'MANAGER'));
  * Permission: STAFF, MANAGER
  */
 router.post('/', pawnTicketsController.createPawnTicket);
+
+// ========== PAYMENT ACTIONS (must be before generic :ticketId) ==========
+/**
+ * POST /api/v1/staff/pawn-tickets/:ticketId/part-payment
+ * POST /api/v1/staff/pawn-tickets/:ticketId/renewal
+ * POST /api/v1/staff/pawn-tickets/:ticketId/redemption
+ */
+router.post('/:ticketId/part-payment', paymentsController.processPartPayment);
+router.post('/:ticketId/renewal', paymentsController.processRenewal);
+router.post('/:ticketId/redemption', paymentsController.processRedemption);
 
 // ========== GET SINGLE TICKET ==========
 /**

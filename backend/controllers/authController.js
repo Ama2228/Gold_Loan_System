@@ -70,6 +70,10 @@ const login = async (req, res) => {
 
     // Generate JWT token
     const rolesArray = user.roles ? user.roles.split(',') : [];
+    const primaryRole = rolesArray.includes('ADMIN') ? 'ADMIN'
+      : rolesArray.includes('MANAGER') ? 'MANAGER'
+      : rolesArray.includes('STAFF') ? 'STAFF'
+      : rolesArray[0] || 'CUSTOMER';
     const token = jwt.sign(
       { 
         userId: user.user_id,
@@ -92,7 +96,7 @@ const login = async (req, res) => {
           nic: user.nic,
           fullName: user.full_name,
           status: user.status,
-          primaryRole: rolesArray[0] || 'CUSTOMER',
+          primaryRole,
           roles: rolesArray,
           staffType: user.staff_type,
           branchId: user.branch_id
@@ -228,8 +232,100 @@ const changePassword = async (req, res) => {
   }
 };
 
+// @desc    Lookup customer for registration (public)
+// @route   POST /api/v1/auth/register/lookup
+// @access  Public
+const registerLookup = async (req, res) => {
+  try {
+    const { nic } = req.body;
+
+    const [rows] = await pool.query(
+      `SELECT u.full_name, cp.email, cp.phone
+       FROM users u
+       INNER JOIN user_roles ur ON u.user_id = ur.user_id
+       INNER JOIN roles r ON ur.role_id = r.role_id
+       LEFT JOIN customer_profiles cp ON u.user_id = cp.customer_id
+       WHERE u.nic = ? AND u.status = 'ACTIVE' AND r.role_name = 'CUSTOMER'
+       LIMIT 1`,
+      [nic]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Customer not found. Please contact the branch to register.'
+      });
+    }
+
+    const row = rows[0];
+    res.json({
+      success: true,
+      data: {
+        fullName: row.full_name || '',
+        email: row.email || '',
+        phone: row.phone || ''
+      }
+    });
+  } catch (error) {
+    console.error('Register lookup error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Complete registration - set password for pre-registered customer
+// @route   POST /api/v1/auth/register
+// @access  Public
+const register = async (req, res) => {
+  try {
+    const { nic, password } = req.body;
+
+    const [users] = await pool.query(
+      `SELECT u.user_id
+       FROM users u
+       INNER JOIN user_roles ur ON u.user_id = ur.user_id
+       INNER JOIN roles r ON ur.role_id = r.role_id
+       WHERE u.nic = ? AND u.status = 'ACTIVE' AND r.role_name = 'CUSTOMER'
+       LIMIT 1`,
+      [nic]
+    );
+
+    if (users.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Customer not found. Please contact the branch to register.'
+      });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const passwordHash = await bcrypt.hash(password, salt);
+
+    await pool.query(
+      'UPDATE users SET password_hash = ? WHERE user_id = ?',
+      [passwordHash, users[0].user_id]
+    );
+
+    res.json({
+      success: true,
+      message: 'Registration successful. You can now login.'
+    });
+  } catch (error) {
+    console.error('Register error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   login,
   getMe,
-  changePassword
+  changePassword,
+  registerLookup,
+  register
 };

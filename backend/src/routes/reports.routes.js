@@ -11,7 +11,7 @@ const router = express.Router();
 
 // Apply protect and ADMIN role requirement to all routes
 router.use(protect);
-router.use(requireRole('ADMIN'));
+router.use(requireRole('STAFF', 'MANAGER', 'ADMIN'));
 
 // @route   GET /daily
 // @desc    Get daily transactions report

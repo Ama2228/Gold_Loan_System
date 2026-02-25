@@ -10,6 +10,17 @@
   body {
     @apply bg-slate-950 text-slate-100 antialiased;
   }
+
+  /* Ensure form inputs have visible text on white backgrounds */
+  input,
+  textarea,
+  select {
+    @apply text-gray-900;
+  }
+  input::placeholder,
+  textarea::placeholder {
+    @apply text-gray-500;
+  }
 }
 
 @layer components {

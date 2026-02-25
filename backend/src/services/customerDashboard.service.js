@@ -6,9 +6,10 @@ class CustomerDashboardService {
     try {
       // Get customer info
       const [customer] = await pool.query(
-        `SELECT u.user_id, u.nic, u.full_name, cp.email, cp.phone, cp.city, cp.status, cp.registered_date
+        `SELECT u.user_id, u.nic, u.full_name, cp.email, cp.phone, COALESCE(c.city_name, '') as city, cp.status, cp.registered_date
          FROM users u
          LEFT JOIN customer_profiles cp ON u.user_id = cp.customer_id
+         LEFT JOIN cities c ON cp.city_id = c.city_id
          WHERE u.user_id = ?`,
         [customerId]
       );

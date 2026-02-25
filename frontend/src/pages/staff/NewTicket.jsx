@@ -1,129 +1,365 @@
-import { useState } from 'react'
-import { ChevronDown, Plus, Edit, Trash2 } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { Trash2 } from 'lucide-react'
+import api from '../../services/api'
+
+const ITEM_TYPES = ['Chain', 'Ring', 'Bangle', 'Bracelet', 'Earring', 'Pendant', 'Necklace']
+const INTEREST_PERCENTAGE = 100
+
+function useDebounce(value, delay) {
+  const [debouncedValue, setDebouncedValue] = useState(value)
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedValue(value), delay)
+    return () => clearTimeout(timer)
+  }, [value, delay])
+  return debouncedValue
+}
 
 export default function NewTicket() {
-  const [formData, setFormData] = useState({
-    customerId: '',
-    period: '6',
-    articles: []
-  })
-  const [currentArticle, setCurrentArticle] = useState({
-    article: 'Chain',
-    count: '01',
-    quality: 'Broken',
-    acidTest: 'Not Done',
-    grossWeight: '',
-    netWeight: '',
-    karatage: '14K',
-    adjustKaratage: '22K'
-  })
+  const navigate = useNavigate()
+  const [karatRates, setKaratRates] = useState([])
+  const [pawningPeriods, setPawningPeriods] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [branchId, setBranchId] = useState(null)
+  const [customerSearch, setCustomerSearch] = useState('')
+  const [customerResults, setCustomerResults] = useState([])
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false)
+  const [selectedCustomer, setSelectedCustomer] = useState(null)
+  const [loadingSearch, setLoadingSearch] = useState(false)
+  const debouncedSearch = useDebounce(customerSearch, 300)
 
+  const [pawningPeriodMonths, setPawningPeriodMonths] = useState(6)
+  const [articles, setArticles] = useState([])
   const [articleError, setArticleError] = useState('')
+  const [submitError, setSubmitError] = useState('')
+  const [submitSuccess, setSubmitSuccess] = useState(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const customerInfo = {
-    name: 'Mr. TMHN Bandara',
-    nic: '20012345678',
-    type: 'Normal',
-    address: 'No. 25, Lake Road',
-    district: 'Kandy',
-    mobile1: '077 123 4567',
-    mobile2: '076 987 6543'
-  }
+  const [currentArticle, setCurrentArticle] = useState({
+    item_type: 'Chain',
+    quantity: 1,
+    gross_weight_grams: '',
+    net_weight_grams: '',
+    purity_karat: '',
+    notes: ''
+  })
 
-  const grantSummary = {
-    ticketNumber: 'TCK12345',
-    period: '6 Months',
-    interestRate: '24%',
-    grossWeight: '15.20 g',
-    netWeight: '14.50 g',
-    noOfItems: '07',
-    assessValue: '₨. 840,000.00',
-    advanceAmount: '₨. 700,000.00',
-    payableAmount: '₨. 500,000.00',
-    serviceCharge: '₨. 5,000.00'
+  useEffect(() => {
+    const fetchMetadata = async () => {
+      try {
+        setLoading(true)
+        const [ratesRes, periodsRes] = await Promise.all([
+          api.get('/staff/pawn-tickets/meta/karat-rates'),
+          api.get('/staff/pawn-tickets/meta/pawning-periods')
+        ])
+        if (ratesRes.success && ratesRes.data) setKaratRates(ratesRes.data)
+        if (periodsRes.success && periodsRes.data) {
+          setPawningPeriods(periodsRes.data)
+          if (periodsRes.data.length > 0) {
+            setPawningPeriodMonths(periodsRes.data[0].duration_months)
+          }
+        }
+        const user = api.getCurrentUser()
+        if (user?.branchId) setBranchId(user.branchId)
+        if (ratesRes.success && ratesRes.data?.length > 0) {
+          setCurrentArticle(prev => ({ ...prev, purity_karat: ratesRes.data[0].karat }))
+        }
+      } catch (err) {
+        console.error('Failed to fetch metadata:', err)
+        setSubmitError('Failed to load form data. Please refresh.')
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchMetadata()
+  }, [])
+
+  useEffect(() => {
+    if (debouncedSearch.length < 2) {
+      setCustomerResults([])
+      setShowCustomerDropdown(false)
+      return
+    }
+    const searchCustomers = async () => {
+      try {
+        setLoadingSearch(true)
+        const res = await api.get(`/staff/customers/search?q=${encodeURIComponent(debouncedSearch)}`)
+        if (res.success && res.data) {
+          setCustomerResults(res.data)
+          setShowCustomerDropdown(true)
+        }
+      } catch (err) {
+        setCustomerResults([])
+      } finally {
+        setLoadingSearch(false)
+      }
+    }
+    searchCustomers()
+  }, [debouncedSearch])
+
+  const handleSelectCustomer = (customer) => {
+    setSelectedCustomer({
+      customer_id: customer.customer_id,
+      full_name: customer.full_name,
+      nic: customer.nic,
+      phone: customer.phone || '',
+      email: customer.email || '',
+      city_name: customer.city_name || '',
+      registered_branch: customer.registered_branch || ''
+    })
+    setCustomerSearch(`${customer.full_name} (${customer.nic})`)
+    setShowCustomerDropdown(false)
   }
 
   const handleArticleChange = (e) => {
     const { name, value } = e.target
-    setCurrentArticle(prev => ({ ...prev, [name]: value }))
+    const parsed = ['quantity', 'gross_weight_grams', 'net_weight_grams', 'purity_karat'].includes(name)
+      ? (name === 'quantity' ? parseInt(value, 10) : parseFloat(value))
+      : value
+    setCurrentArticle(prev => ({ ...prev, [name]: parsed }))
+  }
+
+  const getRateForKarat = (karat) => {
+    const r = karatRates.find(k => k.karat === karat)
+    return r ? r.advance_value_per_gram : 0
+  }
+
+  const calculateArticleAssessedValue = (article) => {
+    const net = parseFloat(article.net_weight_grams)
+    const karat = parseInt(article.purity_karat, 10)
+    if (!net || !karat) return 0
+    return net * getRateForKarat(karat)
+  }
+
+  const totalNetWeight = articles.reduce((sum, a) => sum + (parseFloat(a.net_weight_grams) || 0), 0)
+  const totalAssessedValue = articles.reduce((sum, a) => sum + calculateArticleAssessedValue(a), 0)
+  const advanceAmount = (totalAssessedValue * INTEREST_PERCENTAGE) / 100
+  const roundedAdvance = Math.round(advanceAmount * 100) / 100
+  const minLoanMet = roundedAdvance >= 5000
+
+  const getDueDate = () => {
+    const d = new Date()
+    d.setMonth(d.getMonth() + pawningPeriodMonths)
+    return d.toISOString().split('T')[0]
   }
 
   const handleAddArticle = () => {
-    if (formData.articles.length >= 5) {
+    setArticleError('')
+    if (articles.length >= 5) {
       setArticleError('You can add up to 5 article types per receipt.')
       return
     }
-
-    setArticleError('')
-    if (currentArticle.article) {
-      setFormData(prev => ({
-        ...prev,
-        articles: [
-          ...prev.articles,
-          { id: prev.articles.length + 1, ...currentArticle }
-        ]
-      }))
-      setCurrentArticle({
-        article: 'Chain',
-        count: '01',
-        quality: 'Broken',
-        acidTest: 'Not Done',
-        grossWeight: '',
-        netWeight: '',
-        karatage: '14K',
-        adjustKaratage: '22K'
-      })
+    const gross = parseFloat(currentArticle.gross_weight_grams)
+    const net = parseFloat(currentArticle.net_weight_grams)
+    const karat = currentArticle.purity_karat ? parseInt(currentArticle.purity_karat, 10) : null
+    if (!currentArticle.item_type?.trim()) {
+      setArticleError('Article type is required.')
+      return
     }
+    if (!gross || gross <= 0) {
+      setArticleError('Gross weight must be greater than 0.')
+      return
+    }
+    if (!net || net <= 0) {
+      setArticleError('Net weight must be greater than 0.')
+      return
+    }
+    if (net > gross) {
+      setArticleError('Net weight cannot exceed gross weight.')
+      return
+    }
+    if (!karat || !karatRates.some(k => k.karat === karat)) {
+      setArticleError('Please select a valid karat.')
+      return
+    }
+
+    const assessed = net * getRateForKarat(karat)
+    setArticles(prev => [...prev, {
+      id: Date.now(),
+      item_type: currentArticle.item_type.trim(),
+      quantity: Math.max(1, parseInt(currentArticle.quantity, 10) || 1),
+      gross_weight_grams: gross,
+      net_weight_grams: net,
+      purity_karat: karat,
+      notes: (currentArticle.notes || '').trim() || null,
+      assessed_value: assessed
+    }])
+    setCurrentArticle({
+      item_type: 'Chain',
+      quantity: 1,
+      gross_weight_grams: '',
+      net_weight_grams: '',
+      purity_karat: karatRates[0]?.karat ?? '',
+      notes: ''
+    })
+  }
+
+  const handleRemoveArticle = (id) => {
+    setArticles(prev => prev.filter(a => a.id !== id))
+  }
+
+  const handleSave = async () => {
+    setSubmitError('')
+    setSubmitSuccess(null)
+    if (!selectedCustomer?.customer_id) {
+      setSubmitError('Please select a customer.')
+      return
+    }
+    if (articles.length === 0) {
+      setSubmitError('Please add at least one article.')
+      return
+    }
+    if (!branchId) {
+      setSubmitError('Unable to determine branch. Please log in again.')
+      return
+    }
+    if (!minLoanMet) {
+      setSubmitError('Advance amount must be at least Rs. 5,000.')
+      return
+    }
+
+    try {
+      setIsSubmitting(true)
+      const payload = {
+        customer_id: selectedCustomer.customer_id,
+        branch_id: branchId,
+        pawning_period_months: pawningPeriodMonths,
+        interest_percentage: INTEREST_PERCENTAGE,
+        articles: articles.map(a => ({
+          item_type: a.item_type,
+          quantity: a.quantity,
+          gross_weight_grams: a.gross_weight_grams,
+          net_weight_grams: a.net_weight_grams,
+          purity_karat: a.purity_karat,
+          notes: a.notes || undefined
+        }))
+      }
+      const res = await api.post('/staff/pawn-tickets', payload)
+      if (res.success && res.data) {
+        setSubmitSuccess({
+          receipt_no: res.data.receipt_no,
+          ticket_id: res.data.ticket_id,
+          loan_amount: res.data.loan_amount
+        })
+        setSelectedCustomer(null)
+        setCustomerSearch('')
+        setArticles([])
+        setCurrentArticle({
+          item_type: 'Chain',
+          quantity: 1,
+          gross_weight_grams: '',
+          net_weight_grams: '',
+          purity_karat: karatRates[0]?.karat ?? '',
+          notes: ''
+        })
+      }
+    } catch (err) {
+      setSubmitError(err.message || 'Failed to create pawn ticket.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleCreateAnother = () => {
+    setSubmitSuccess(null)
+    setSubmitError('')
+  }
+
+  if (loading) {
+    return (
+      <div className="max-w-[1400px] mx-auto px-6 py-8">
+        <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-lg text-center">
+          Loading form data...
+        </div>
+      </div>
+    )
   }
 
   return (
     <div className="max-w-[1400px] mx-auto px-6 py-8 space-y-6">
-      {/* Header */}
       <div className="border-b-2 border-yellow-500 pb-4">
         <h1 className="text-3xl font-bold text-yellow-600">New Ticket</h1>
         <p className="mt-2 text-gray-600">Create a new pawning ticket</p>
       </div>
 
+      {submitError && (
+        <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg">
+          {submitError}
+        </div>
+      )}
+
+      {submitSuccess && (
+        <div className="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg space-y-2">
+          <p className="font-semibold">Pawn ticket created successfully.</p>
+          <p>Receipt: {submitSuccess.receipt_no} | Amount: Rs. {Number(submitSuccess.loan_amount).toLocaleString()}</p>
+          <div className="flex gap-2 mt-2">
+            <button
+              onClick={handleCreateAnother}
+              className="rounded-lg bg-yellow-500 px-4 py-2 text-black font-semibold hover:bg-yellow-600"
+            >
+              Create Another
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Left Section - Form */}
         <div className="lg:col-span-2 space-y-6">
           {/* Customer Section */}
           <div className="space-y-4 bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Customer ID Number</label>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="sm:col-span-2 relative">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Search Customer (NIC or Name)</label>
                 <input
                   type="text"
-                  placeholder="20012345678"
+                  value={customerSearch}
+                  onChange={(e) => {
+                    setCustomerSearch(e.target.value)
+                    if (!e.target.value) setSelectedCustomer(null)
+                  }}
+                  onFocus={() => customerResults.length > 0 && setShowCustomerDropdown(true)}
+                  placeholder="Type to search..."
                   className="w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                  disabled={!!selectedCustomer}
                 />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Customer Type</label>
-                <select
-                  name="article"
-                  value={currentArticle.article}
-                  onChange={handleArticleChange}
-                  className="w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                >
-                  <option>General</option>
-                  <option>VIP</option>
-                  <option>Regular</option>
-                </select>
+                {loadingSearch && (
+                  <span className="absolute right-3 top-10 text-sm text-gray-500">Searching...</span>
+                )}
+                {showCustomerDropdown && customerResults.length > 0 && (
+                  <ul className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-auto">
+                    {customerResults.map((c) => (
+                      <li
+                        key={c.customer_id}
+                        onClick={() => handleSelectCustomer(c)}
+                        className="px-4 py-2 hover:bg-yellow-50 cursor-pointer border-b border-gray-100 last:border-0"
+                      >
+                        <span className="font-medium text-gray-900">{c.full_name}</span>
+                        <span className="text-gray-600 ml-2">({c.nic})</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Period</label>
-                <select className="w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500">
-                  <option>6 Months</option>
-                  <option>3 Months</option>
-                  <option>12 Months</option>
+                <select
+                  value={pawningPeriodMonths}
+                  onChange={(e) => setPawningPeriodMonths(parseInt(e.target.value, 10))}
+                  className="w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                >
+                  {pawningPeriods.map((p) => (
+                    <option key={p.period_id} value={p.duration_months}>
+                      {p.period_name}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>
-            <button className="rounded-lg bg-yellow-500 px-6 py-2 text-black font-semibold hover:bg-yellow-600 transition-colors">
-              Add
-            </button>
-            <button className="ml-2 rounded-lg border-2 border-yellow-500 px-6 py-2 text-yellow-500 font-semibold hover:bg-yellow-50 transition-colors">
+            <button
+              type="button"
+              onClick={() => navigate('/staff/customers/register')}
+              className="rounded-lg border-2 border-yellow-500 px-6 py-2 text-yellow-500 font-semibold hover:bg-yellow-50 transition-colors"
+            >
               + New Customer
             </button>
           </div>
@@ -133,123 +369,88 @@ export default function NewTicket() {
             <h3 className="text-lg font-bold text-gray-900">Article Details</h3>
             <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Article</label>
-                <select className="w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500">
-                  <option>Chain</option>
-                  <option>Ring</option>
-                  <option>Bangle</option>
-                  <option>Bracelet</option>
-                  <option>Earring</option>
-                  <option>Pendant</option>
-                  <option>Necklace</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Article Count</label>
-                <input
-                  type="text"
-                  name="count"
-                  value={currentArticle.count}
-                  onChange={handleArticleChange}
-                  placeholder="01"
-                  className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Quality</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Article Type</label>
                 <select
-                  name="quality"
-                  value={currentArticle.quality}
-                  onChange={handleArticleChange}
-                  className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                >
-                  <option>Broken</option>
-                  <option>Perfect</option>
-                  <option>Damaged</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Acid Test</label>
-                <select
-                  name="acidTest"
-                  value={currentArticle.acidTest}
-                  onChange={handleArticleChange}
-                  className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                >
-                  <option>Not Done</option>
-                  <option>Done</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Gross Weight</label>
-                <input
-                  type="text"
-                  name="grossWeight"
-                  value={currentArticle.grossWeight}
-                  onChange={handleArticleChange}
-                  placeholder="8.00"
-                  className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Net Weight</label>
-                <input
-                  type="text"
-                  name="netWeight"
-                  value={currentArticle.netWeight}
-                  onChange={handleArticleChange}
-                  placeholder="9.00"
-                  className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Caratage</label>
-                <select
-                  name="karatage"
-                  value={currentArticle.karatage}
+                  name="item_type"
+                  value={currentArticle.item_type}
                   onChange={handleArticleChange}
                   className="w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
                 >
-                  <option>14 K</option>
-                  <option>18 K</option>
-                  <option>22 K</option>
-                  <option>24 K</option>
+                  {ITEM_TYPES.map((t) => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Adjust Caratage</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Quantity</label>
+                <input
+                  type="number"
+                  name="quantity"
+                  min="1"
+                  value={currentArticle.quantity}
+                  onChange={handleArticleChange}
+                  className="w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Gross Weight (g)</label>
+                <input
+                  type="number"
+                  name="gross_weight_grams"
+                  step="0.001"
+                  value={currentArticle.gross_weight_grams}
+                  onChange={handleArticleChange}
+                  placeholder="e.g. 8.5"
+                  className="w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Net Weight (g)</label>
+                <input
+                  type="number"
+                  name="net_weight_grams"
+                  step="0.001"
+                  value={currentArticle.net_weight_grams}
+                  onChange={handleArticleChange}
+                  placeholder="e.g. 8.0"
+                  className="w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                />
+              </div>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Purity (Karat)</label>
                 <select
-                  name="adjustKaratage"
-                  value={currentArticle.adjustKaratage}
+                  name="purity_karat"
+                  value={currentArticle.purity_karat}
                   onChange={handleArticleChange}
                   className="w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
                 >
-                  <option>22 K</option>
-                  <option>18 K</option>
-                  <option>14 K</option>
-                  <option>24 K</option>
+                  <option value="">Select Karat</option>
+                  {karatRates.map((k) => (
+                    <option key={k.karat} value={k.karat}>{k.karat}K</option>
+                  ))}
                 </select>
               </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Notes (Optional)</label>
+                <input
+                  type="text"
+                  name="notes"
+                  value={currentArticle.notes}
+                  onChange={handleArticleChange}
+                  placeholder="Add remarks..."
+                  className="w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                />
+              </div>
             </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Remark</label>
-              <textarea placeholder="Add any remarks..." className="w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500" rows="3"></textarea>
-            </div>
-
-            {articleError && (
-              <p className="text-sm text-red-600 font-semibold">{articleError}</p>
-            )}
-
+            {articleError && <p className="text-sm text-red-600 font-semibold">{articleError}</p>}
             <button
               onClick={handleAddArticle}
-              className="w-full rounded-lg bg-yellow-500 px-6 py-3 text-black font-semibold hover:bg-yellow-600 transition-colors disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-600"
-              disabled={formData.articles.length >= 5}
+              disabled={articles.length >= 5}
+              className="w-full rounded-lg bg-yellow-500 px-6 py-3 text-black font-semibold hover:bg-yellow-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              Add Article ({formData.articles.length}/5)
+              Add Article ({articles.length}/5)
             </button>
           </div>
 
@@ -260,30 +461,31 @@ export default function NewTicket() {
                 <tr className="border-b-2 border-yellow-500 bg-yellow-50">
                   <th className="px-4 py-3 text-left font-semibold text-gray-900">#</th>
                   <th className="px-4 py-3 text-left font-semibold text-gray-900">Article</th>
-                  <th className="px-4 py-3 text-left font-semibold text-gray-900">Count</th>
-                  <th className="px-4 py-3 text-left font-semibold text-gray-900">Acid Test</th>
-                  <th className="px-4 py-3 text-left font-semibold text-gray-900">Net</th>
-                  <th className="px-4 py-3 text-left font-semibold text-gray-900">Adjust K</th>
-                  <th className="px-4 py-3 text-left font-semibold text-gray-900">Asses Value</th>
+                  <th className="px-4 py-3 text-left font-semibold text-gray-900">Qty</th>
+                  <th className="px-4 py-3 text-left font-semibold text-gray-900">Net (g)</th>
+                  <th className="px-4 py-3 text-left font-semibold text-gray-900">Karat</th>
+                  <th className="px-4 py-3 text-left font-semibold text-gray-900">Assessed Value</th>
                   <th className="px-4 py-3 text-center font-semibold text-gray-900">Action</th>
                 </tr>
               </thead>
               <tbody>
-                {formData.articles.map((article) => (
+                {articles.map((article, idx) => (
                   <tr key={article.id} className="border-b border-gray-200 hover:bg-gray-50">
-                    <td className="px-4 py-3 text-gray-600">{article.id}</td>
-                    <td className="px-4 py-3 text-gray-900 font-medium">{article.article}</td>
-                    <td className="px-4 py-3 text-gray-600">{article.count}</td>
-                    <td className="px-4 py-3 text-gray-600">{article.acidTest}</td>
-                    <td className="px-4 py-3 text-gray-600">{article.netWeight}</td>
-                    <td className="px-4 py-3 text-gray-600">{article.adjustKaratage}</td>
-                    <td className="px-4 py-3 text-yellow-600 font-semibold">{article.assessValue || '—'}</td>
+                    <td className="px-4 py-3 text-gray-600">{idx + 1}</td>
+                    <td className="px-4 py-3 text-gray-900 font-medium">{article.item_type}</td>
+                    <td className="px-4 py-3 text-gray-600">{article.quantity}</td>
+                    <td className="px-4 py-3 text-gray-600">{article.net_weight_grams}</td>
+                    <td className="px-4 py-3 text-gray-600">{article.purity_karat}K</td>
+                    <td className="px-4 py-3 text-yellow-600 font-semibold">
+                      Rs. {Number(article.assessed_value || 0).toLocaleString()}
+                    </td>
                     <td className="px-4 py-3 text-center">
-                      <button className="text-yellow-600 hover:text-yellow-700 mr-2" disabled>
-                        <Edit className="h-4 w-4" />
-                      </button>
-                      <button className="text-red-600 hover:text-red-700" disabled>
-                        <Trash2 className="h-4 w-4" />
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveArticle(article.id)}
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        <Trash2 className="h-4 w-4 inline" />
                       </button>
                     </td>
                   </tr>
@@ -292,111 +494,109 @@ export default function NewTicket() {
             </table>
           </div>
 
-          {/* Summary Section */}
           <div className="grid gap-4 sm:grid-cols-3 bg-gray-50 p-6 rounded-lg">
             <div>
               <p className="text-sm font-semibold text-gray-600">Total Net Weight</p>
-              <p className="text-2xl font-bold text-gray-900">14.5 g</p>
+              <p className="text-2xl font-bold text-gray-900">{totalNetWeight.toFixed(3)} g</p>
             </div>
             <div>
-              <p className="text-sm font-semibold text-gray-600">Total Asses Value</p>
-              <p className="text-2xl font-bold text-yellow-600">₨. 700,000.00</p>
+              <p className="text-sm font-semibold text-gray-600">Total Assess Value</p>
+              <p className="text-2xl font-bold text-yellow-600">Rs. {totalAssessedValue.toLocaleString()}</p>
             </div>
             <div>
-              <p className="text-sm font-semibold text-gray-600">Payable Amount</p>
-              <input type="text" placeholder="Enter Amount" className="w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500" />
+              <p className="text-sm font-semibold text-gray-600">Advance Amount</p>
+              <p className="text-2xl font-bold text-gray-900">Rs. {roundedAdvance.toLocaleString()}</p>
+              {!minLoanMet && articles.length > 0 && (
+                <p className="text-xs text-red-600 mt-1">Minimum Rs. 5,000 required</p>
+              )}
             </div>
           </div>
         </div>
 
-        {/* Right Section - Customer Info & Summary */}
+        {/* Right Section */}
         <div className="lg:col-span-1 space-y-6">
-          {/* Customer Information */}
           <div className="rounded-lg bg-gray-50 p-6 border-l-4 border-yellow-500">
             <h3 className="text-lg font-bold text-gray-900 mb-4">Customer Information</h3>
-            <div className="space-y-3">
-              <div>
-                <p className="text-xs font-semibold text-gray-600">Customer Name</p>
-                <p className="text-sm text-gray-900">{customerInfo.name}</p>
+            {selectedCustomer ? (
+              <div className="space-y-3">
+                <div>
+                  <p className="text-xs font-semibold text-gray-600">Customer Name</p>
+                  <p className="text-sm text-gray-900">{selectedCustomer.full_name}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-gray-600">NIC</p>
+                  <p className="text-sm text-gray-900">{selectedCustomer.nic}</p>
+                </div>
+                {selectedCustomer.phone && (
+                  <div>
+                    <p className="text-xs font-semibold text-gray-600">Phone</p>
+                    <p className="text-sm text-gray-900">{selectedCustomer.phone}</p>
+                  </div>
+                )}
+                {selectedCustomer.city_name && (
+                  <div>
+                    <p className="text-xs font-semibold text-gray-600">City</p>
+                    <p className="text-sm text-gray-900">{selectedCustomer.city_name}</p>
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedCustomer(null)
+                    setCustomerSearch('')
+                  }}
+                  className="w-full mt-4 rounded-lg border-2 border-yellow-500 px-4 py-2 text-yellow-500 font-semibold hover:bg-yellow-50 transition-colors"
+                >
+                  Change Customer
+                </button>
               </div>
-              <div>
-                <p className="text-xs font-semibold text-gray-600">NIC</p>
-                <p className="text-sm text-gray-900">{customerInfo.nic}</p>
-              </div>
-              <div>
-                <p className="text-xs font-semibold text-gray-600">Customer Type</p>
-                <p className="text-sm text-gray-900">{customerInfo.type}</p>
-              </div>
-              <div>
-                <p className="text-xs font-semibold text-gray-600">Address</p>
-                <p className="text-sm text-gray-900">{customerInfo.address}</p>
-              </div>
-              <div>
-                <p className="text-xs font-semibold text-gray-600">District</p>
-                <p className="text-sm text-gray-900">{customerInfo.district}</p>
-              </div>
-              <div>
-                <p className="text-xs font-semibold text-gray-600">Mobile Number 1</p>
-                <p className="text-sm text-gray-900">{customerInfo.mobile1}</p>
-              </div>
-              <div>
-                <p className="text-xs font-semibold text-gray-600">Mobile Number 2</p>
-                <p className="text-sm text-gray-900">{customerInfo.mobile2}</p>
-              </div>
-              <button className="w-full mt-4 rounded-lg border-2 border-yellow-500 px-4 py-2 text-yellow-500 font-semibold hover:bg-yellow-50 transition-colors">
-                Edit Details ➜
-              </button>
-            </div>
+            ) : (
+              <p className="text-sm text-gray-500">Search and select a customer to continue.</p>
+            )}
           </div>
 
-          {/* Grant Summary */}
           <div className="rounded-lg bg-yellow-50 p-6 border-l-4 border-yellow-500">
             <h3 className="text-lg font-bold text-gray-900 mb-4">Grant Summary</h3>
             <div className="space-y-3 text-sm">
               <div className="flex justify-between">
                 <span className="text-gray-600">Ticket Number</span>
-                <span className="font-semibold text-gray-900">{grantSummary.ticketNumber}</span>
+                <span className="font-semibold text-gray-900">—</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Period</span>
-                <span className="font-semibold text-gray-900">{grantSummary.period}</span>
+                <span className="font-semibold text-gray-900">{pawningPeriodMonths} Months</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Interest Rate</span>
-                <span className="font-semibold text-gray-900">{grantSummary.interestRate}</span>
+                <span className="text-gray-600">Interest</span>
+                <span className="font-semibold text-gray-900">{INTEREST_PERCENTAGE}%</span>
               </div>
-              <div className="border-t border-teal-200 pt-3 flex justify-between">
-                <span className="text-gray-600">Gross Weight</span>
-                <span className="font-semibold text-gray-900">{grantSummary.grossWeight}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Net Weight</span>
-                <span className="font-semibold text-gray-900">{grantSummary.netWeight}</span>
+              <div className="border-t border-yellow-200 pt-3 flex justify-between">
+                <span className="text-gray-600">Total Net Weight</span>
+                <span className="font-semibold text-gray-900">{totalNetWeight.toFixed(3)} g</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">No. of Items</span>
-                <span className="font-semibold text-gray-900">{grantSummary.noOfItems}</span>
+                <span className="text-gray-600">No. of Articles</span>
+                <span className="font-semibold text-gray-900">{articles.length}</span>
               </div>
-              <div className="border-t border-teal-200 pt-3 flex justify-between">
+              <div className="border-t border-yellow-200 pt-3 flex justify-between">
                 <span className="text-gray-600">Assess Value</span>
-                <span className="font-semibold text-yellow-600">{grantSummary.assessValue}</span>
+                <span className="font-semibold text-yellow-600">Rs. {totalAssessedValue.toLocaleString()}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Advance Amount</span>
-                <span className="font-semibold text-yellow-600">{grantSummary.advanceAmount}</span>
+                <span className="font-semibold text-yellow-600">Rs. {roundedAdvance.toLocaleString()}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Payable Amount</span>
-                <span className="font-semibold text-yellow-600">{grantSummary.payableAmount}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Service Charge</span>
-                <span className="font-semibold text-gray-900">{grantSummary.serviceCharge}</span>
+                <span className="text-gray-600">Due Date</span>
+                <span className="font-semibold text-gray-900">{getDueDate()}</span>
               </div>
             </div>
-
-            <button className="w-full mt-6 rounded-lg bg-yellow-500 px-6 py-3 text-black font-semibold hover:bg-yellow-600 transition-colors">
-              Save
+            <button
+              onClick={handleSave}
+              disabled={isSubmitting || !selectedCustomer || articles.length === 0 || !minLoanMet}
+              className="w-full mt-6 rounded-lg bg-yellow-500 px-6 py-3 text-black font-semibold hover:bg-yellow-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {isSubmitting ? 'Saving...' : 'Save'}
             </button>
           </div>
         </div>
@@ -404,5 +604,3 @@ export default function NewTicket() {
     </div>
   )
 }
-
-

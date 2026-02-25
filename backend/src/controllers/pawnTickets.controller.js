@@ -148,6 +148,92 @@ class PawnTicketsController {
   }
 
   /**
+   * GET /api/v1/staff/pawn-tickets/meta/karat-rates
+   * Get all active karat advance rates (read-only for staff)
+   */
+  async getKaratRates(req, res) {
+    try {
+      const rates = await pawnTicketsService.getAllKaratRates();
+      return res.status(200).json({
+        success: true,
+        data: rates,
+        message: 'Karat rates retrieved'
+      });
+    } catch (error) {
+      console.error('Get karat rates error:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Error retrieving karat rates',
+        error: error.message
+      });
+    }
+  }
+
+  /**
+   * GET /api/v1/staff/pawn-tickets/meta/pawning-periods
+   * Get all active pawning periods (read-only for staff)
+   */
+  async getPawningPeriods(req, res) {
+    try {
+      const periods = await pawnTicketsService.getAllPawningPeriods();
+      return res.status(200).json({
+        success: true,
+        data: periods,
+        message: 'Pawning periods retrieved'
+      });
+    } catch (error) {
+      console.error('Get pawning periods error:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Error retrieving pawning periods',
+        error: error.message
+      });
+    }
+  }
+
+  /**
+   * GET /api/v1/staff/pawn-tickets/by-receipt/:receiptNo
+   * Get pawn ticket by receipt number (with payment summary for Part/Renewal/Redemption)
+   */
+  async getTicketByReceipt(req, res) {
+    try {
+      const { receiptNo } = req.params;
+      const branchId = req.user?.branch_id || null;
+
+      if (!receiptNo || String(receiptNo).trim() === '') {
+        return res.status(400).json({
+          success: false,
+          message: 'Receipt number is required'
+        });
+      }
+
+      const ticket = await pawnTicketsService.getTicketByReceiptNo(receiptNo.trim(), branchId);
+
+      return res.status(200).json({
+        success: true,
+        data: ticket,
+        message: 'Ticket retrieved'
+      });
+
+    } catch (error) {
+      console.error('Get ticket by receipt error:', error);
+
+      if (error.message === 'Ticket not found') {
+        return res.status(404).json({
+          success: false,
+          message: 'Ticket not found'
+        });
+      }
+
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to get ticket',
+        error: error.message
+      });
+    }
+  }
+
+  /**
    * GET /api/v1/staff/pawn-tickets/:ticketId
    * Get pawn ticket details with articles
    */
@@ -249,6 +335,7 @@ class PawnTicketsController {
   async searchTickets(req, res) {
     try {
       const { searchTerm } = req.params;
+      const reversibleOnly = req.query.reversibleOnly === 'true' || req.query.reversibleOnly === '1';
       const branchId = req.user.branch_id;
 
       if (!searchTerm || searchTerm.length < 2) {
@@ -258,7 +345,7 @@ class PawnTicketsController {
         });
       }
 
-      const tickets = await pawnTicketsService.searchTickets(branchId, searchTerm);
+      const tickets = await pawnTicketsService.searchTickets(branchId, searchTerm, { reversibleOnly });
 
       return res.status(200).json({
         success: true,

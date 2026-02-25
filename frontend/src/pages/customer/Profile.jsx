@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Eye, EyeOff, CheckCircle, AlertCircle, Clock } from 'lucide-react'
+import api from '../../services/api'
+import CustomerHeader from '../../components/CustomerHeader'
 
 // Helper function to generate 6-digit OTP
 function generateOtp() {
@@ -22,17 +24,24 @@ function formatCountdown(seconds) {
 
 export default function Profile() {
   const navigate = useNavigate()
-  const [isProfileOpen, setIsProfileOpen] = useState(false)
 
   // Profile data
   const [profile, setProfile] = useState({
-    fullName: 'Customer Name',
-    nic: '199512345678',
-    mobile: '+94 77 123 4567',
-    branch: 'Colombo Branch',
-    address: 'No. 10, Main Street, Rajagiriya, Colombo 07',
+    fullName: '',
+    nic: '',
+    mobile: '',
+    branch: '',
+    address: '',
+    addressLine1: '',
+    addressLine2: '',
+    city: '',
+    email: '',
     status: 'Active'
   })
+  const [profileLoading, setProfileLoading] = useState(true)
+  const [profileError, setProfileError] = useState(null)
+  const [updateSuccess, setUpdateSuccess] = useState('')
+  const [editableFields, setEditableFields] = useState({ email: '', addressLine1: '', addressLine2: '', city: '' })
 
   // Mobile change state
   const [newMobileNumber, setNewMobileNumber] = useState('')
@@ -55,6 +64,63 @@ export default function Profile() {
   const [passwordCountdown, setPasswordCountdown] = useState(0)
   const [passwordErrors, setPasswordErrors] = useState({})
   const [passwordSuccess, setPasswordSuccess] = useState('')
+
+  useEffect(() => {
+    async function load() {
+      setProfileLoading(true)
+      setProfileError(null)
+      try {
+        const res = await api.getCustomerProfile()
+        if (res.success && res.data) {
+          const d = res.data
+          const addr = [d.address_line1, d.address_line2, d.city].filter(Boolean).join(', ')
+          setProfile({
+            fullName: d.full_name || '',
+            nic: d.nic || '',
+            mobile: d.mobile_number || d.phone || '',
+            branch: d.branch_name || '',
+            address: addr || '-',
+            addressLine1: d.address_line1 || '',
+            addressLine2: d.address_line2 || '',
+            city: d.city || '',
+            email: d.email || '',
+            status: d.status || 'Active'
+          })
+          setEditableFields({
+            email: d.email || '',
+            addressLine1: d.address_line1 || '',
+            addressLine2: d.address_line2 || '',
+            city: d.city || ''
+          })
+        }
+      } catch (err) {
+        setProfileError(err.message || 'Failed to load profile')
+      } finally {
+        setProfileLoading(false)
+      }
+    }
+    load()
+  }, [])
+
+  const handleSaveProfile = async () => {
+    try {
+      await api.updateCustomerProfile({
+        email: editableFields.email,
+        addressLine1: editableFields.addressLine1,
+        addressLine2: editableFields.addressLine2,
+        city: editableFields.city
+      })
+      setProfile(prev => ({
+        ...prev,
+        email: editableFields.email,
+        address: [editableFields.addressLine1, editableFields.addressLine2, editableFields.city].filter(Boolean).join(', ') || '-'
+      }))
+      setUpdateSuccess('Profile updated successfully')
+      setTimeout(() => setUpdateSuccess(''), 3000)
+    } catch (err) {
+      setProfileError(err.message || 'Failed to update profile')
+    }
+  }
 
   // Mobile countdown effect
   useEffect(() => {
@@ -90,6 +156,7 @@ export default function Profile() {
     if (Object.keys(errors).length > 0) return
 
     const otp = generateOtp()
+    api.logOtp('PHONE_CHANGE', otp)
     const expiresAt = new Date(Date.now() + 2 * 60 * 1000) // 2 minutes
     setMobileOtpData({ code: otp, expiresAt: expiresAt.toISOString(), resendCount: mobileOtpData.resendCount + 1 })
     setMobileCountdown(120)
@@ -134,6 +201,7 @@ export default function Profile() {
   // Password: Send OTP
   const handleSendPasswordOtp = () => {
     const otp = generateOtp()
+    api.logOtp('PASSWORD_CHANGE', otp)
     const expiresAt = new Date(Date.now() + 2 * 60 * 1000) // 2 minutes
     setPasswordOtpData({ code: otp, expiresAt: expiresAt.toISOString(), resendCount: passwordOtpData.resendCount + 1 })
     setPasswordCountdown(120)
@@ -187,97 +255,7 @@ export default function Profile() {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      {/* Top Navigation Bar */}
-      <nav className="sticky top-0 z-50 bg-gradient-to-r from-yellow-500 to-yellow-600 shadow-lg">
-        <div className="max-w-[1400px] mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-black font-bold text-yellow-400 shadow-md">
-                SG
-              </div>
-              <div>
-                <h1 className="text-lg font-bold text-black">Smart Gold</h1>
-                <p className="text-xs text-black/70">Customer Dashboard</p>
-              </div>
-            </div>
-
-            <nav className="hidden md:flex items-center gap-3 text-sm font-semibold text-black">
-              <button
-                onClick={() => navigate('/customer')}
-                className="rounded-md px-3 py-2 transition-all hover:bg-yellow-700/50"
-              >
-                Overview
-              </button>
-              <span className="text-black/40">|</span>
-              <button
-                onClick={() => navigate('/customer/receipts')}
-                className="rounded-md px-3 py-2 transition-all hover:bg-yellow-700/50"
-              >
-                My Receipts
-              </button>
-              <span className="text-black/40">|</span>
-              <button
-                onClick={() => navigate('/customer/part-payments')}
-                className="rounded-md px-3 py-2 transition-all hover:bg-yellow-700/50"
-              >
-                Part Payments
-              </button>
-              <span className="text-black/40">|</span>
-              <button
-                onClick={() => navigate('/customer/appointments')}
-                className="rounded-md px-3 py-2 transition-all hover:bg-yellow-700/50"
-              >
-                Appointments
-              </button>
-              <span className="text-black/40">|</span>
-              <button className="rounded-md px-3 py-2 transition-all hover:bg-yellow-700/50 bg-yellow-700/50">
-                Profile
-              </button>
-            </nav>
-
-            <div className="flex items-center gap-4">
-              <div className="relative">
-                <button
-                  onClick={() => setIsProfileOpen(prev => !prev)}
-                  className="rounded-full bg-black/20 px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-black/30"
-                >
-                  Settings
-                </button>
-                {isProfileOpen && (
-                  <div className="absolute right-0 mt-2 w-80 rounded-lg border border-gray-200 bg-white shadow-lg">
-                    <div className="border-b border-gray-100 px-4 py-3">
-                      <p className="text-sm font-semibold text-gray-900">Account Settings</p>
-                    </div>
-                    <div className="space-y-3 px-4 py-4">
-                      <button
-                        onClick={() => navigate('/customer/profile')}
-                        className="w-full text-left px-3 py-2 rounded-md hover:bg-yellow-50 text-sm font-semibold text-gray-700"
-                      >
-                        Edit Profile
-                      </button>
-                      <button className="w-full text-left px-3 py-2 rounded-md hover:bg-yellow-50 text-sm font-semibold text-gray-700">
-                        Notification Settings
-                      </button>
-                      <button
-                        onClick={() => navigate('/login')}
-                        className="w-full text-left px-3 py-2 rounded-md hover:bg-red-50 text-sm font-semibold text-red-700"
-                      >
-                        Logout
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-              <button
-                onClick={() => navigate('/login')}
-                className="rounded-md bg-red-500 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-600"
-              >
-                Logout
-              </button>
-            </div>
-          </div>
-        </div>
-      </nav>
+      <CustomerHeader />
 
       <main className="px-6 py-8">
         <div className="max-w-[1400px] mx-auto">
@@ -290,6 +268,15 @@ export default function Profile() {
               </p>
             </div>
           </div>
+
+          {profileLoading && (
+            <div className="rounded-lg bg-white shadow-sm border border-gray-200 p-6 mb-6">
+              <p className="text-gray-600">Loading profile...</p>
+            </div>
+          )}
+          {profileError && (
+            <div className="rounded-lg bg-red-50 border border-red-200 p-4 mb-6 text-red-700">{profileError}</div>
+          )}
 
           {/* Two Column Layout */}
           <div className="grid grid-cols-1 lg:grid-cols-[45%_55%] gap-8">
@@ -342,13 +329,13 @@ export default function Profile() {
                   />
                 </div>
 
-                {/* Address */}
+                {/* Address - displayed from profile */}
                 <div>
-                  <label className="block text-xs font-semibold text-gray-600 mb-1">Address (Read-only)</label>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Address</label>
                   <textarea
-                    value={profile.address}
+                    value={profile.address || '-'}
                     disabled
-                    rows="3"
+                    rows="2"
                     className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm text-gray-900 bg-gray-50"
                   />
                 </div>
@@ -364,7 +351,7 @@ export default function Profile() {
                 {/* Note */}
                 <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
                   <p className="text-xs text-yellow-700">
-                    <strong>Note:</strong> NIC and address cannot be changed. Contact support if you need to update these fields.
+                    <strong>Note:</strong> NIC cannot be changed. Use the Update Profile section to change email and address.
                   </p>
                 </div>
               </div>
@@ -372,6 +359,65 @@ export default function Profile() {
 
             {/* Right Column: Actions */}
             <div className="space-y-6">
+              {/* Card 0: Update Profile (email, address) */}
+              <div className="rounded-lg bg-white shadow-sm border border-gray-200 p-6">
+                <h3 className="text-lg font-bold text-gray-900 mb-4">Update Profile</h3>
+                {updateSuccess && (
+                  <div className="p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2 mb-4">
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                    <p className="text-sm text-green-700 font-semibold">{updateSuccess}</p>
+                  </div>
+                )}
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Email</label>
+                    <input
+                      type="email"
+                      value={editableFields.email}
+                      onChange={(e) => setEditableFields(prev => ({ ...prev, email: e.target.value }))}
+                      placeholder="your@email.com"
+                      className="w-full rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Address Line 1</label>
+                    <input
+                      type="text"
+                      value={editableFields.addressLine1}
+                      onChange={(e) => setEditableFields(prev => ({ ...prev, addressLine1: e.target.value }))}
+                      placeholder="Street address"
+                      className="w-full rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Address Line 2 (Optional)</label>
+                    <input
+                      type="text"
+                      value={editableFields.addressLine2}
+                      onChange={(e) => setEditableFields(prev => ({ ...prev, addressLine2: e.target.value }))}
+                      placeholder="City, postal code"
+                      className="w-full rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">City</label>
+                    <input
+                      type="text"
+                      value={editableFields.city}
+                      onChange={(e) => setEditableFields(prev => ({ ...prev, city: e.target.value }))}
+                      placeholder="City"
+                      className="w-full rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                    />
+                  </div>
+                  <button
+                    onClick={handleSaveProfile}
+                    className="w-full rounded-lg bg-yellow-500 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-600"
+                  >
+                    Save Profile
+                  </button>
+                </div>
+              </div>
+
               {/* Card 1: Change Mobile Number */}
               <div className="rounded-lg bg-white shadow-sm border border-gray-200 p-6">
                 <h3 className="text-lg font-bold text-gray-900 mb-4">Change Mobile Number</h3>

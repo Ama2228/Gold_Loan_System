@@ -476,11 +476,104 @@ const getDistricts = async () => {
   }
 };
 
+// @desc    Get customer inquiry summary (profile + active tickets + total loans + recent transactions)
+// @param   customerId - Customer ID
+// @returns Customer profile, activeTicketsCount, totalLoans, lastTransactionDate, recentTransactions
+const getCustomerInquirySummary = async (customerId) => {
+  try {
+    const customer = await getCustomerById(customerId);
+    if (!customer) return null;
+
+    const [ticketStats] = await pool.query(
+      `SELECT 
+        COUNT(*) as activeTicketsCount,
+        COALESCE(SUM(loan_amount), 0) as totalLoans
+       FROM pawn_tickets
+       WHERE customer_id = ? AND status IN ('ACTIVE', 'RENEWED', 'OVERDUE')`,
+      [customerId]
+    );
+
+    const [lastTx] = await pool.query(
+      `SELECT MAX(p.payment_date) as lastTransactionDate
+       FROM payments p
+       JOIN pawn_tickets pt ON p.ticket_id = pt.ticket_id
+       WHERE pt.customer_id = ?`,
+      [customerId]
+    );
+
+    const [recentPayments] = await pool.query(
+      `SELECT 
+        p.payment_id,
+        pt.receipt_no,
+        p.payment_type,
+        p.amount,
+        p.payment_date,
+        p.payment_method
+       FROM payments p
+       JOIN pawn_tickets pt ON p.ticket_id = pt.ticket_id
+       WHERE pt.customer_id = ?
+       ORDER BY p.payment_date DESC
+       LIMIT 15`,
+      [customerId]
+    );
+
+    const recentTransactions = recentPayments.map(r => {
+      let typeLabel = r.payment_type;
+      if (r.payment_type === 'PART') typeLabel = 'Part Payment';
+      else if (r.payment_type === 'INTEREST') typeLabel = 'Renewal';
+      else if (r.payment_type === 'FULL') typeLabel = 'Redemption';
+      return {
+        id: r.payment_id,
+        type: typeLabel,
+        amount: parseFloat(r.amount),
+        date: r.payment_date,
+        receiptNo: r.receipt_no,
+        paymentMethod: r.payment_method,
+        status: 'Completed'
+      };
+    });
+
+    const [activeTickets] = await pool.query(
+      `SELECT 
+        ticket_id,
+        receipt_no,
+        loan_amount,
+        issue_date,
+        due_date,
+        status
+       FROM pawn_tickets
+       WHERE customer_id = ? AND status IN ('ACTIVE', 'RENEWED', 'OVERDUE')
+       ORDER BY due_date ASC`,
+      [customerId]
+    );
+
+    return {
+      customer,
+      activeTicketsCount: parseInt(ticketStats[0].activeTicketsCount) || 0,
+      totalLoans: parseFloat(ticketStats[0].totalLoans) || 0,
+      lastTransactionDate: lastTx[0]?.lastTransactionDate || null,
+      recentTransactions,
+      activeTickets: activeTickets.map(t => ({
+        ticketId: t.ticket_id,
+        receiptNo: t.receipt_no,
+        loanAmount: parseFloat(t.loan_amount),
+        issueDate: t.issue_date,
+        dueDate: t.due_date,
+        status: t.status
+      }))
+    };
+  } catch (error) {
+    console.error('❌ getCustomerInquirySummary service error:', error);
+    throw error;
+  }
+};
+
 module.exports = {
   createCustomer,
   getCustomers,
   listCustomers,
   getCustomerById,
+  getCustomerInquirySummary,
   updateCustomer,
   deleteCustomer,
   searchCustomers,

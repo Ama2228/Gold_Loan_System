@@ -1,6 +1,9 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
 import { Bell, X, Clock, AlertCircle, CheckCircle, CreditCard, Settings } from 'lucide-react'
+import api from '../../services/api'
+import CustomerHeader from '../../components/CustomerHeader'
+
+const READ_IDS_KEY = 'customer_notifications_read'
 
 // Helper function to format date and time
 function formatDateTime(date) {
@@ -28,105 +31,52 @@ function getDaysAgo(date) {
   return diffDays
 }
 
+function getReadIds() {
+  try {
+    const s = localStorage.getItem(READ_IDS_KEY)
+    return s ? JSON.parse(s) : []
+  } catch { return [] }
+}
+function setReadIds(ids) {
+  try { localStorage.setItem(READ_IDS_KEY, JSON.stringify(ids)) } catch {}
+}
+
 export default function Notifications() {
-  const navigate = useNavigate()
-  const [isProfileOpen, setIsProfileOpen] = useState(false)
+  const [notifications, setNotifications] = useState([])
+  const [readIds, setReadIdsState] = useState(getReadIds())
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
-  // Dummy notifications data
-  const [notifications, setNotifications] = useState([
-    {
-      id: 'notif001',
-      type: 'REMINDER',
-      title: '1st Due Date Reminder',
-      message: 'Your receipt 0001-25000001 is due on 2026-02-05. Please arrange to renew or redeem soon.',
-      createdAt: new Date(Date.now() - 1 * 60 * 60 * 1000), // 1 hour ago
-      isRead: false,
-      receiptNo: '0001-25000001',
-      reminderLevel: 1,
-      meta: { dueDate: '2026-02-05', interestAmount: 15000 }
-    },
-    {
-      id: 'notif002',
-      type: 'APPOINTMENT',
-      title: 'Appointment Approved',
-      message: 'Your appointment for renewal on 2026-02-13 at 10:00 AM has been approved.',
-      createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
-      isRead: false,
-      receiptNo: '0003-25000023',
-      meta: { appointmentDate: '2026-02-13', timeSlot: '10:00-10:30' }
-    },
-    {
-      id: 'notif003',
-      type: 'PAYMENT',
-      title: 'Payment Received',
-      message: 'We received your part payment of Rs. 25,000 for receipt 0001-25000001.',
-      createdAt: new Date(Date.now() - 5 * 60 * 60 * 1000),
-      isRead: true,
-      receiptNo: '0001-25000001',
-      meta: { paymentAmount: 25000, paymentMethod: 'Card', date: '2026-02-08' }
-    },
-    {
-      id: 'notif004',
-      type: 'REMINDER',
-      title: '2nd Due Date Reminder',
-      message: 'Your receipt 0003-25000023 is overdue since 2026-01-26. Please renew or redeem immediately.',
-      createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), // 1 day ago
-      isRead: true,
-      receiptNo: '0003-25000023',
-      reminderLevel: 2,
-      meta: { dueDate: '2026-01-26', interestAmount: 28250 }
-    },
-    {
-      id: 'notif005',
-      type: 'SYSTEM',
-      title: 'Security Alert',
-      message: 'Your password was successfully changed. If this was not you, please contact support immediately.',
-      createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
-      isRead: true,
-      meta: { date: '2026-02-08' }
-    },
-    {
-      id: 'notif006',
-      type: 'APPOINTMENT',
-      title: 'Appointment Cancelled',
-      message: 'Your appointment on 2026-02-10 has been cancelled. Please book a new appointment.',
-      createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
-      isRead: true,
-      meta: { appointmentDate: '2026-02-10', timeSlot: '09:00-09:30' }
-    },
-    {
-      id: 'notif007',
-      type: 'REMINDER',
-      title: '3rd Due Date Reminder',
-      message: 'URGENT: Receipt 0001-25000001 is due for immediate action. Auction may proceed if not renewed.',
-      createdAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000),
-      isRead: true,
-      receiptNo: '0001-25000001',
-      reminderLevel: 3,
-      meta: { dueDate: '2026-02-05', interestAmount: 15000 }
-    },
-    {
-      id: 'notif008',
-      type: 'PAYMENT',
-      title: 'Redemption Completed',
-      message: 'Your redemption request for receipt 0002-25000012 has been completed. Please collect your items.',
-      createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
-      isRead: true,
-      receiptNo: '0002-25000012',
-      meta: { paymentAmount: 450000, date: '2026-02-05' }
+  useEffect(() => {
+    async function load() {
+      setLoading(true)
+      setError(null)
+      try {
+        const res = await api.getCustomerNotifications()
+        setNotifications(res.data || [])
+      } catch (err) {
+        setError(err.message || 'Failed to load notifications')
+      } finally {
+        setLoading(false)
+      }
     }
-  ])
+    load()
+  }, [])
 
-  // Filter state
+  const markRead = (id) => {
+    const next = [...new Set([...readIds, id])]
+    setReadIdsState(next)
+    setReadIds(next)
+  }
+
   const [searchQuery, setSearchQuery] = useState('')
   const [typeFilter, setTypeFilter] = useState('All')
   const [statusFilter, setStatusFilter] = useState('All')
   const [dateFilter, setDateFilter] = useState('All')
-
-  // Detail modal state
   const [selectedNotification, setSelectedNotification] = useState(null)
 
-  // Filter notifications
+  const isRead = (id) => readIds.includes(id)
+
   const filtered = notifications.filter(notif => {
     // Search filter
     const searchMatch =
@@ -138,35 +88,30 @@ export default function Notifications() {
     // Type filter
     const typeMatch = typeFilter === 'All' || notif.type === typeFilter
 
-    // Status filter
-    const statusMatch = statusFilter === 'All' || (statusFilter === 'Unread' ? !notif.isRead : notif.isRead)
+    const statusMatch = statusFilter === 'All' || (statusFilter === 'Unread' ? !isRead(notif.id) : isRead(notif.id))
 
-    // Date filter
     let dateMatch = true
     if (dateFilter === 'Last 7 days') {
       dateMatch = getDaysAgo(notif.createdAt) <= 7
     } else if (dateFilter === 'Last 30 days') {
       dateMatch = getDaysAgo(notif.createdAt) <= 30
     }
-
     return searchMatch && typeMatch && statusMatch && dateMatch
   })
 
-  // Actions
   const handleMarkAllAsRead = () => {
-    setNotifications(notifications.map(n => ({ ...n, isRead: true })))
+    const allIds = notifications.map(n => n.id)
+    setReadIdsState(allIds)
+    setReadIds(allIds)
   }
 
   const handleClearRead = () => {
-    setNotifications(notifications.filter(n => !n.isRead))
-  }
-
-  const handleMarkAsRead = (id) => {
-    setNotifications(notifications.map(n => (n.id === id ? { ...n, isRead: true } : n)))
+    setReadIdsState([])
+    setReadIds([])
   }
 
   const handleViewDetails = (notif) => {
-    handleMarkAsRead(notif.id)
+    markRead(notif.id)
     setSelectedNotification(notif)
   }
 
@@ -186,108 +131,11 @@ export default function Notifications() {
     }
   }
 
-  const unreadCount = notifications.filter(n => !n.isRead).length
+  const unreadCount = notifications.filter(n => !isRead(n.id)).length
 
   return (
     <div className="min-h-screen bg-gray-100">
-      {/* Top Navigation Bar */}
-      <nav className="sticky top-0 z-50 bg-gradient-to-r from-yellow-500 to-yellow-600 shadow-lg">
-        <div className="max-w-[1400px] mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-black font-bold text-yellow-400 shadow-md">
-                SG
-              </div>
-              <div>
-                <h1 className="text-lg font-bold text-black">Smart Gold</h1>
-                <p className="text-xs text-black/70">Customer Dashboard</p>
-              </div>
-            </div>
-
-            <nav className="hidden md:flex items-center gap-3 text-sm font-semibold text-black">
-              <button
-                onClick={() => navigate('/customer')}
-                className="rounded-md px-3 py-2 transition-all hover:bg-yellow-700/50"
-              >
-                Overview
-              </button>
-              <span className="text-black/40">|</span>
-              <button
-                onClick={() => navigate('/customer/receipts')}
-                className="rounded-md px-3 py-2 transition-all hover:bg-yellow-700/50"
-              >
-                My Receipts
-              </button>
-              <span className="text-black/40">|</span>
-              <button
-                onClick={() => navigate('/customer/part-payments')}
-                className="rounded-md px-3 py-2 transition-all hover:bg-yellow-700/50"
-              >
-                Part Payments
-              </button>
-              <span className="text-black/40">|</span>
-              <button
-                onClick={() => navigate('/customer/appointments')}
-                className="rounded-md px-3 py-2 transition-all hover:bg-yellow-700/50"
-              >
-                Appointments
-              </button>
-              <span className="text-black/40">|</span>
-              <button className="rounded-md px-3 py-2 transition-all hover:bg-yellow-700/50 bg-yellow-700/50">
-                Notifications
-              </button>
-              <span className="text-black/40">|</span>
-              <button
-                onClick={() => navigate('/customer/profile')}
-                className="rounded-md px-3 py-2 transition-all hover:bg-yellow-700/50"
-              >
-                Profile
-              </button>
-            </nav>
-
-            <div className="flex items-center gap-4">
-              <div className="relative">
-                <button
-                  onClick={() => setIsProfileOpen(prev => !prev)}
-                  className="rounded-full bg-black/20 px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-black/30"
-                >
-                  Settings
-                </button>
-                {isProfileOpen && (
-                  <div className="absolute right-0 mt-2 w-80 rounded-lg border border-gray-200 bg-white shadow-lg">
-                    <div className="border-b border-gray-100 px-4 py-3">
-                      <p className="text-sm font-semibold text-gray-900">Account Settings</p>
-                    </div>
-                    <div className="space-y-3 px-4 py-4">
-                      <button
-                        onClick={() => navigate('/customer/profile')}
-                        className="w-full text-left px-3 py-2 rounded-md hover:bg-yellow-50 text-sm font-semibold text-gray-700"
-                      >
-                        Edit Profile
-                      </button>
-                      <button className="w-full text-left px-3 py-2 rounded-md hover:bg-yellow-50 text-sm font-semibold text-gray-700">
-                        Notification Settings
-                      </button>
-                      <button
-                        onClick={() => navigate('/login')}
-                        className="w-full text-left px-3 py-2 rounded-md hover:bg-red-50 text-sm font-semibold text-red-700"
-                      >
-                        Logout
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-              <button
-                onClick={() => navigate('/login')}
-                className="rounded-md bg-red-500 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-600"
-              >
-                Logout
-              </button>
-            </div>
-          </div>
-        </div>
-      </nav>
+      <CustomerHeader />
 
       <main className="px-6 py-8">
         <div className="max-w-[1400px] mx-auto">
@@ -387,7 +235,13 @@ export default function Notifications() {
 
           {/* Notifications List */}
           <div className="space-y-4">
-            {filtered.length > 0 ? (
+            {loading ? (
+              <div className="rounded-lg bg-white shadow-sm border border-gray-200 p-12 text-center">
+                <p className="text-gray-600">Loading notifications...</p>
+              </div>
+            ) : error ? (
+              <div className="rounded-lg bg-red-50 border border-red-200 p-4 text-red-700">{error}</div>
+            ) : filtered.length > 0 ? (
               filtered.map((notif) => {
                 const typeInfo = getNotificationType(notif.type)
                 const Icon = typeInfo.icon
@@ -397,7 +251,7 @@ export default function Notifications() {
                     key={notif.id}
                     onClick={() => handleViewDetails(notif)}
                     className={`w-full rounded-lg border-2 p-4 text-left transition-all ${
-                      notif.isRead
+                      isRead(notif.id)
                         ? 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
                         : 'border-yellow-300 bg-yellow-50 hover:border-yellow-400'
                     }`}
@@ -413,7 +267,7 @@ export default function Notifications() {
                         <div className="flex items-center gap-2 mb-1">
                           <p
                             className={`font-bold ${
-                              notif.isRead ? 'text-gray-900' : 'text-yellow-900 font-bold'
+                              isRead(notif.id) ? 'text-gray-900' : 'text-yellow-900 font-bold'
                             }`}
                           >
                             {notif.title}
@@ -434,7 +288,7 @@ export default function Notifications() {
                               Level {notif.reminderLevel}
                             </span>
                           )}
-                          {!notif.isRead && <div className="h-2 w-2 rounded-full bg-yellow-500"></div>}
+                          {!isRead(notif.id) && <div className="h-2 w-2 rounded-full bg-yellow-500"></div>}
                         </div>
                         <p className="text-sm text-gray-600 mb-2">{notif.message}</p>
                         <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500">
@@ -442,7 +296,7 @@ export default function Notifications() {
                             <span className="bg-gray-100 px-2 py-1 rounded">Receipt: {notif.receiptNo}</span>
                           )}
                           <span className="text-gray-400">•</span>
-                          <span>{formatDateTime(notif.createdAt)}</span>
+                          <span>{formatDateTime(notif.createdAt || notif.created_at)}</span>
                         </div>
                       </div>
 
@@ -503,18 +357,18 @@ export default function Notifications() {
               )}
 
               {selectedNotification.type === 'REMINDER' && selectedNotification.meta && (
-                <>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm font-semibold text-gray-600 mb-1">Due Date</p>
-                      <p className="text-gray-900">{selectedNotification.meta.dueDate}</p>
-                    </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-600 mb-1">Due Date</p>
+                    <p className="text-gray-900">{selectedNotification.meta.dueDate}</p>
+                  </div>
+                  {selectedNotification.meta.interestAmount != null && (
                     <div>
                       <p className="text-sm font-semibold text-gray-600 mb-1">Interest Amount</p>
-                      <p className="text-yellow-600 font-bold">Rs. {selectedNotification.meta.interestAmount.toLocaleString()}</p>
+                      <p className="text-yellow-600 font-bold">Rs. {Number(selectedNotification.meta.interestAmount).toLocaleString()}</p>
                     </div>
-                  </div>
-                </>
+                  )}
+                </div>
               )}
 
               {selectedNotification.type === 'APPOINTMENT' && selectedNotification.meta && (
@@ -533,23 +387,25 @@ export default function Notifications() {
               )}
 
               {selectedNotification.type === 'PAYMENT' && selectedNotification.meta && (
-                <>
-                  <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-4">
+                  {selectedNotification.meta.paymentAmount != null && (
                     <div>
                       <p className="text-sm font-semibold text-gray-600 mb-1">Amount</p>
-                      <p className="text-green-600 font-bold">Rs. {selectedNotification.meta.paymentAmount.toLocaleString()}</p>
+                      <p className="text-green-600 font-bold">Rs. {Number(selectedNotification.meta.paymentAmount).toLocaleString()}</p>
                     </div>
+                  )}
+                  {selectedNotification.meta.paymentMethod && (
                     <div>
                       <p className="text-sm font-semibold text-gray-600 mb-1">Method</p>
                       <p className="text-gray-900">{selectedNotification.meta.paymentMethod}</p>
                     </div>
-                  </div>
-                </>
+                  )}
+                </div>
               )}
 
               <div className="pt-2 border-t border-gray-200">
                 <p className="text-xs text-gray-500">
-                  Received: {formatDateTime(selectedNotification.createdAt)}
+                  Received: {formatDateTime(selectedNotification.createdAt || selectedNotification.created_at)}
                 </p>
               </div>
             </div>

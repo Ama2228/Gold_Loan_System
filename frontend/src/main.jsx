@@ -22,7 +22,6 @@ import PartPayment from './pages/staff/PartPayment.jsx'
 import Tickets from './pages/staff/Tickets.jsx'
 import Reminders from './pages/staff/Reminders.jsx'
 import Appointments from './pages/staff/Appointments.jsx'
-import Reports from './pages/staff/Reports.jsx'
 import CustomerDashboard from './pages/customer/CustomerDashboard.jsx'
 import ManagerDashboardHome from './pages/manager/ManagerDashboardHome.jsx'
 import ReversePawning from './pages/manager/ReversePawning.jsx'
@@ -74,8 +73,9 @@ ReactDOM.createRoot(document.getElementById('app')).render(
           <Route path="appointments/list" element={<Appointments />} />
           
           {/* Reports Routes */}
-          <Route path="reports/monthly" element={<Reports />} />
-          <Route path="reports/daily" element={<Reports />} />
+          <Route path="reports/daily" element={<DailyReport />} />
+          <Route path="reports/monthly" element={<MonthlyReport />} />
+          <Route path="reports/auction" element={<AuctionReport />} />
         </Route>
         <Route path="/customer" element={<CustomerDashboard />} />
         <Route path="/customer/receipts" element={<MyReceipts />} />

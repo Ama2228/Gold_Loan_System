@@ -171,6 +171,43 @@ const listCustomers = async (req, res) => {
   }
 };
 
+// @desc    Get customer inquiry summary (profile + tickets + transactions)
+// @route   GET /api/v1/staff/customers/:customerId/inquiry
+// @access  Private/Staff/Manager
+const getCustomerInquiry = async (req, res) => {
+  try {
+    const { customerId } = req.params;
+    if (!customerId || isNaN(customerId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid customer ID'
+      });
+    }
+
+    const summary = await staffCustomersService.getCustomerInquirySummary(parseInt(customerId, 10));
+
+    if (!summary) {
+      return res.status(404).json({
+        success: false,
+        message: 'Customer not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Customer inquiry retrieved',
+      data: summary
+    });
+  } catch (error) {
+    console.error('Get customer inquiry error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error retrieving customer inquiry',
+      error: error.message
+    });
+  }
+};
+
 // @desc    Get customer by ID
 // @route   GET /api/v1/staff/customers/:customerId
 // @access  Private/Staff/Manager
@@ -420,6 +457,7 @@ module.exports = {
   createCustomer,
   listCustomers,
   getCustomerById,
+  getCustomerInquiry,
   updateCustomer,
   deleteCustomer,
   searchCustomers,

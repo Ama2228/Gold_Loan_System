@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Calendar, Clock, CheckCircle, AlertCircle } from 'lucide-react'
+import api from '../../services/api'
+import CustomerHeader from '../../components/CustomerHeader'
 
 // Helper function to generate time slots
 function generateTimeSlots(startHour = 9, endHour = 14, intervalMinutes = 30) {
@@ -18,93 +20,57 @@ function generateTimeSlots(startHour = 9, endHour = 14, intervalMinutes = 30) {
   return slots
 }
 
-// Helper function to get slot key for availability lookup
-function getSlotKey(startTime) {
-  return startTime
+function getStatusLabel(status) {
+  if (status === 'PENDING' || status === 'APPROVED') return 'Booked'
+  if (status === 'COMPLETED') return 'Completed'
+  if (status === 'CANCELLED') return 'Cancelled'
+  return status || '—'
 }
 
 export default function Appointments() {
   const navigate = useNavigate()
-  const [isProfileOpen, setIsProfileOpen] = useState(false)
   const [showSuccess, setShowSuccess] = useState(false)
+  const [appointments, setAppointments] = useState([])
+  const [activeReceipts, setActiveReceipts] = useState([])
+  const [branches, setBranches] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [submitError, setSubmitError] = useState(null)
 
-  // Dummy data - Active receipts for dropdown
-  const activeReceipts = [
-    { id: '0001-25000001', amount: 700000 },
-    { id: '0003-25000023', amount: 550000 },
-    { id: '0004-25000034', amount: 320000 }
-  ]
+  const [slotsLoading, setSlotsLoading] = useState(false)
+  const [slotsForDate, setSlotsForDate] = useState([])
 
-  // Dummy data - Branches
-  const branches = [
-    { id: 'COL-001', name: 'Colombo Branch' },
-    { id: 'KDY-002', name: 'Kandy Branch' },
-    { id: 'MTR-003', name: 'Matara Branch' }
-  ]
-
-  // Dummy appointments data
-  const [appointments, setAppointments] = useState([
-    {
-      id: 'APT001',
-      date: '2026-02-11',
-      timeSlot: '09:00-09:30',
-      receiptNo: '0001-25000001',
-      purpose: 'Renew',
-      branch: 'Colombo Branch',
-      status: 'APPROVED'
-    },
-    {
-      id: 'APT002',
-      date: '2026-02-13',
-      timeSlot: '10:00-10:30',
-      receiptNo: '0003-25000023',
-      purpose: 'Redeem',
-      branch: 'Kandy Branch',
-      status: 'PENDING'
-    },
-    {
-      id: 'APT003',
-      date: '2026-02-15',
-      timeSlot: '13:30-14:00',
-      receiptNo: '0001-25000001',
-      purpose: 'Renew',
-      branch: 'Colombo Branch',
-      status: 'COMPLETED'
+  useEffect(() => {
+    async function load() {
+      setLoading(true)
+      try {
+        const [apptRes, receiptsRes, branchesRes] = await Promise.all([
+          api.getCustomerAppointments(),
+          api.getCustomerReceipts(),
+          api.getCustomerBranches()
+        ])
+        setAppointments(apptRes.data || [])
+        setActiveReceipts((receiptsRes.data || []).map(r => ({
+          ticket_id: r.ticket_id,
+          receipt_no: r.receipt_no,
+          loan_amount: r.loan_amount
+        })))
+        setBranches((branchesRes.data || []).map(b => ({
+          id: b.branch_id,
+          name: b.branch_name
+        })))
+      } catch (err) {
+        console.error('Load appointments error:', err)
+      } finally {
+        setLoading(false)
+      }
     }
-  ])
-
-  // Dummy slot availability (slots used per date and time)
-  const [slotAvailability, setSlotAvailability] = useState({
-    '2026-02-11': {
-      '09:00': 2,
-      '09:30': 5,
-      '10:00': 1,
-      '10:30': 3,
-      '11:00': 0,
-      '11:30': 4,
-      '12:00': 2,
-      '12:30': 5,
-      '13:00': 1,
-      '13:30': 3
-    },
-    '2026-02-12': {
-      '09:00': 1,
-      '09:30': 2,
-      '10:00': 3,
-      '10:30': 0,
-      '11:00': 2,
-      '11:30': 1,
-      '12:00': 4,
-      '12:30': 3,
-      '13:00': 5,
-      '13:30': 1
-    }
-  })
+    load()
+  }, [])
 
   // Form state
   const [purpose, setPurpose] = useState('')
-  const [receiptNo, setReceiptNo] = useState('')
-  const [branch, setBranch] = useState(branches[0].id)
+  const [ticketId, setTicketId] = useState('')
+  const [branchId, setBranchId] = useState('')
   const [appointmentDate, setAppointmentDate] = useState('')
   const [selectedTimeSlot, setSelectedTimeSlot] = useState('')
   const [notes, setNotes] = useState('')
@@ -114,15 +80,34 @@ export default function Appointments() {
   const [statusFilter, setStatusFilter] = useState('All')
   const [dateRangeFilter, setDateRangeFilter] = useState('Upcoming')
 
-  // Get time slots for selected date
-  const timeSlots = generateTimeSlots()
-  const dateSlotAvailability = appointmentDate ? (slotAvailability[appointmentDate] || {}) : {}
+  useEffect(() => {
+    if (branches.length > 0 && !branchId) setBranchId(String(branches[0].id))
+  }, [branches])
 
-  // Filter appointments
+  // Fetch slot availability when branch and date are selected
+  useEffect(() => {
+    if (!branchId || !appointmentDate) {
+      setSlotsForDate([])
+      return
+    }
+    setSlotsLoading(true)
+    setSelectedTimeSlot('')
+    api.getCustomerSlotAvailability(branchId, appointmentDate)
+      .then((res) => {
+        setSlotsForDate(res.data || [])
+      })
+      .catch(() => setSlotsForDate([]))
+      .finally(() => setSlotsLoading(false))
+  }, [branchId, appointmentDate])
+
+  const timeSlots = slotsForDate.length > 0 ? slotsForDate : generateTimeSlots().map((s) => ({ ...s, used: 0, capacity: 5 }))
+
   const filteredAppointments = appointments.filter(apt => {
     const statusMatch = statusFilter === 'All' || apt.status === statusFilter
-    const today = new Date('2026-02-10')
-    const aptDate = new Date(apt.date)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const aptDate = new Date(apt.appointment_date || apt.date)
+    aptDate.setHours(0, 0, 0, 0)
     const dateMatch =
       dateRangeFilter === 'Upcoming' ? aptDate >= today : aptDate < today
     return statusMatch && dateMatch
@@ -131,159 +116,81 @@ export default function Appointments() {
   const validateForm = () => {
     const errors = {}
     if (!purpose) errors.purpose = 'Please select a purpose'
-    if (!receiptNo) errors.receiptNo = 'Please select a receipt'
-    if (!branch) errors.branch = 'Please select a branch'
+    if (!ticketId) errors.ticketId = 'Please select a receipt'
+    if (!branchId) errors.branch = 'Please select a branch'
     if (!appointmentDate) errors.appointmentDate = 'Please select a date'
+    else {
+      const tomorrow = new Date()
+      tomorrow.setDate(tomorrow.getDate() + 1)
+      const minDate = tomorrow.toISOString().split('T')[0]
+      if (appointmentDate < minDate) {
+        errors.appointmentDate = 'Appointments cannot be scheduled for today or a past date'
+      }
+    }
     if (!selectedTimeSlot) errors.selectedTimeSlot = 'Please select a time slot'
     return errors
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     const errors = validateForm()
-
     if (Object.keys(errors).length > 0) {
       setFormErrors(errors)
       return
     }
-
-    // Create new appointment
-    const newAppointment = {
-      id: `APT${Date.now()}`,
-      date: appointmentDate,
-      timeSlot: selectedTimeSlot,
-      receiptNo: receiptNo,
-      purpose: purpose,
-      branch: branches.find(b => b.id === branch)?.name || branch,
-      status: 'PENDING'
+    setSubmitError(null)
+    const [startTime, endTime] = selectedTimeSlot.split('-').map(s => s.trim())
+    const ts = (t) => (t && t.split(':').length === 2 ? `${t}:00` : t || '09:00:00')
+    const time_slot_start = ts(startTime)
+    const time_slot_end = ts(endTime)
+    try {
+      await api.createCustomerAppointment({
+        ticket_id: parseInt(ticketId, 10),
+        branch_id: parseInt(branchId, 10),
+        purpose: purpose.toUpperCase(),
+        appointment_date: appointmentDate,
+        time_slot_start,
+        time_slot_end
+      })
+      const apptRes = await api.getCustomerAppointments()
+      setAppointments(apptRes.data || [])
+      setShowSuccess(true)
+      setPurpose('')
+      setTicketId('')
+        setBranchId(branches.length > 0 ? String(branches[0].id) : '')
+      setAppointmentDate('')
+      setSelectedTimeSlot('')
+      setNotes('')
+      setFormErrors({})
+      setTimeout(() => setShowSuccess(false), 3000)
+    } catch (err) {
+      setSubmitError(err.message || 'Failed to create appointment')
     }
-
-    setAppointments([...appointments, newAppointment])
-    setShowSuccess(true)
-
-    // Reset form
-    setPurpose('')
-    setReceiptNo('')
-    setBranch(branches[0].id)
-    setAppointmentDate('')
-    setSelectedTimeSlot('')
-    setNotes('')
-    setFormErrors({})
-
-    setTimeout(() => setShowSuccess(false), 3000)
   }
 
   const isFormValid =
     purpose &&
-    receiptNo &&
-    branch &&
+    ticketId &&
+    branchId &&
     appointmentDate &&
     selectedTimeSlot &&
     Object.keys(validateForm()).length === 0
 
   return (
     <div className="min-h-screen bg-gray-100">
-      {/* Top Navigation Bar */}
-      <nav className="sticky top-0 z-50 bg-gradient-to-r from-yellow-500 to-yellow-600 shadow-lg">
-        <div className="max-w-[1400px] mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-black font-bold text-yellow-400 shadow-md">
-                SG
-              </div>
-              <div>
-                <h1 className="text-lg font-bold text-black">Smart Gold</h1>
-                <p className="text-xs text-black/70">Customer Dashboard</p>
-              </div>
-            </div>
-
-            <nav className="hidden md:flex items-center gap-3 text-sm font-semibold text-black">
-              <button
-                onClick={() => navigate('/customer')}
-                className="rounded-md px-3 py-2 transition-all hover:bg-yellow-700/50"
-              >
-                Overview
-              </button>
-              <span className="text-black/40">|</span>
-              <button
-                onClick={() => navigate('/customer/receipts')}
-                className="rounded-md px-3 py-2 transition-all hover:bg-yellow-700/50"
-              >
-                My Receipts
-              </button>
-              <span className="text-black/40">|</span>
-              <button
-                onClick={() => navigate('/customer/part-payments')}
-                className="rounded-md px-3 py-2 transition-all hover:bg-yellow-700/50"
-              >
-                Part Payments
-              </button>
-              <span className="text-black/40">|</span>
-              <button className="rounded-md px-3 py-2 transition-all hover:bg-yellow-700/50 bg-yellow-700/50">
-                Appointments
-              </button>
-              <span className="text-black/40">|</span>
-              <button className="rounded-md px-3 py-2 transition-all hover:bg-yellow-700/50">
-                Notifications
-              </button>
-            </nav>
-
-            <div className="flex items-center gap-4">
-              <div className="relative">
-                <button
-                  onClick={() => setIsProfileOpen(prev => !prev)}
-                  className="rounded-full bg-black/20 px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-black/30"
-                >
-                  Profile
-                </button>
-                {isProfileOpen && (
-                  <div className="absolute right-0 mt-2 w-80 rounded-lg border border-gray-200 bg-white shadow-lg">
-                    <div className="border-b border-gray-100 px-4 py-3">
-                      <p className="text-sm font-semibold text-gray-900">Profile Details</p>
-                    </div>
-                    <div className="space-y-3 px-4 py-4">
-                      <div>
-                        <label className="block text-xs font-semibold text-gray-600 mb-1">
-                          Customer Name
-                        </label>
-                        <input
-                          type="text"
-                          defaultValue="Customer Name"
-                          className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm text-gray-900"
-                          readOnly
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-semibold text-gray-600 mb-1">
-                          Customer ID
-                        </label>
-                        <input
-                          type="text"
-                          defaultValue="CUS001"
-                          className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm text-gray-900"
-                          readOnly
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-              <button
-                onClick={() => navigate('/login')}
-                className="rounded-md bg-red-500 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-600"
-              >
-                Logout
-              </button>
-            </div>
-          </div>
-        </div>
-      </nav>
+      <CustomerHeader />
 
       {/* Success Message */}
       {showSuccess && (
         <div className="fixed top-20 right-6 z-50 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-2">
           <CheckCircle className="h-5 w-5" />
-          <span className="font-semibold">Appointment submitted successfully (demo)</span>
+          <span className="font-semibold">Appointment submitted successfully</span>
+        </div>
+      )}
+      {submitError && (
+        <div className="fixed top-20 right-6 z-50 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-2">
+          <AlertCircle className="h-5 w-5" />
+          <span className="font-semibold">{submitError}</span>
         </div>
       )}
 
@@ -314,11 +221,10 @@ export default function Appointments() {
                     onChange={(e) => setStatusFilter(e.target.value)}
                     className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-yellow-500"
                   >
-                    <option>All</option>
-                    <option>PENDING</option>
-                    <option>APPROVED</option>
-                    <option>COMPLETED</option>
-                    <option>CANCELLED</option>
+                    <option value="All">All</option>
+                    <option value="Booked">Booked</option>
+                    <option value="COMPLETED">Completed</option>
+                    <option value="CANCELLED">Cancelled</option>
                   </select>
                 </div>
                 <div>
@@ -335,7 +241,9 @@ export default function Appointments() {
               </div>
 
               {/* Appointments Table */}
-              {filteredAppointments.length > 0 ? (
+              {loading ? (
+                <p className="text-sm text-gray-600 text-center py-8">Loading appointments...</p>
+              ) : filteredAppointments.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
@@ -350,14 +258,14 @@ export default function Appointments() {
                     </thead>
                     <tbody>
                       {filteredAppointments.map((apt) => (
-                        <tr key={apt.id} className="border-b border-gray-200 hover:bg-gray-50">
-                          <td className="py-3 px-2 text-gray-900 font-semibold">{apt.date}</td>
-                          <td className="py-3 px-2 text-gray-600 text-xs">{apt.timeSlot}</td>
-                          <td className="py-3 px-2 text-gray-900">{apt.receiptNo}</td>
+                        <tr key={apt.appointment_id || apt.id} className="border-b border-gray-200 hover:bg-gray-50">
+                          <td className="py-3 px-2 text-gray-900 font-semibold">{String(apt.appointment_date || apt.date).slice(0, 10)}</td>
+                          <td className="py-3 px-2 text-gray-600 text-xs">{apt.time_slot || apt.timeSlot || `${String(apt.time_slot_start || '').slice(0, 5)}-${String(apt.time_slot_end || '').slice(0, 5)}`}</td>
+                          <td className="py-3 px-2 text-gray-900">{apt.receipt_no || apt.receiptNo}</td>
                           <td className="py-3 px-2">
                             <span
                               className={`text-xs font-bold px-2 py-1 rounded ${
-                                apt.purpose === 'Renew'
+                                apt.purpose === 'RENEW' || apt.purpose === 'Renew'
                                   ? 'bg-blue-100 text-blue-700'
                                   : 'bg-purple-100 text-purple-700'
                               }`}
@@ -365,20 +273,18 @@ export default function Appointments() {
                               {apt.purpose}
                             </span>
                           </td>
-                          <td className="py-3 px-2 text-gray-600 text-xs">{apt.branch}</td>
+                          <td className="py-3 px-2 text-gray-600 text-xs">{apt.branch_name || apt.branch}</td>
                           <td className="py-3 px-2">
                             <span
                               className={`text-xs font-bold px-2 py-1 rounded ${
-                                apt.status === 'PENDING'
-                                  ? 'bg-yellow-100 text-yellow-700'
-                                  : apt.status === 'APPROVED'
+                                apt.status === 'PENDING' || apt.status === 'APPROVED'
                                   ? 'bg-green-100 text-green-700'
                                   : apt.status === 'COMPLETED'
                                   ? 'bg-blue-100 text-blue-700'
                                   : 'bg-red-100 text-red-700'
                               }`}
                             >
-                              {apt.status}
+                              {getStatusLabel(apt.status)}
                             </span>
                           </td>
                         </tr>
@@ -406,29 +312,29 @@ export default function Appointments() {
                       <input
                         type="radio"
                         name="purpose"
-                        value="Renew"
-                        checked={purpose === 'Renew'}
+                        value="RENEW"
+                        checked={purpose === 'RENEW'}
                         onChange={(e) => {
                           setPurpose(e.target.value)
                           setFormErrors({ ...formErrors, purpose: '' })
                         }}
                         className="w-4 h-4"
                       />
-                      <span className="text-sm text-gray-700">Renew</span>
+                        <span className="text-sm text-gray-700">RENEW</span>
                     </label>
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input
                         type="radio"
                         name="purpose"
-                        value="Redeem"
-                        checked={purpose === 'Redeem'}
+                        value="REDEEM"
+                        checked={purpose === 'REDEEM'}
                         onChange={(e) => {
                           setPurpose(e.target.value)
                           setFormErrors({ ...formErrors, purpose: '' })
                         }}
                         className="w-4 h-4"
                       />
-                      <span className="text-sm text-gray-700">Redeem</span>
+                        <span className="text-sm text-gray-700">REDEEM</span>
                     </label>
                   </div>
                   {formErrors.purpose && (
@@ -442,27 +348,27 @@ export default function Appointments() {
                 {/* Receipt Number */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Receipt Number <span className="text-red-500">*</span>
+                    Receipt <span className="text-red-500">*</span>
                   </label>
                   <select
-                    value={receiptNo}
+                    value={ticketId}
                     onChange={(e) => {
-                      setReceiptNo(e.target.value)
-                      setFormErrors({ ...formErrors, receiptNo: '' })
+                      setTicketId(e.target.value)
+                      setFormErrors({ ...formErrors, ticketId: '' })
                     }}
                     className="w-full rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-yellow-500"
                   >
                     <option value="">Select receipt</option>
                     {activeReceipts.map((receipt) => (
-                      <option key={receipt.id} value={receipt.id}>
-                        {receipt.id} (Rs. {receipt.amount.toLocaleString()})
+                      <option key={receipt.ticket_id} value={receipt.ticket_id}>
+                        {receipt.receipt_no} (Rs. {Number(receipt.loan_amount).toLocaleString()})
                       </option>
                     ))}
                   </select>
-                  {formErrors.receiptNo && (
+                  {formErrors.ticketId && (
                     <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
                       <AlertCircle className="h-3 w-3" />
-                      {formErrors.receiptNo}
+                      {formErrors.ticketId}
                     </p>
                   )}
                 </div>
@@ -473,9 +379,9 @@ export default function Appointments() {
                     Branch <span className="text-red-500">*</span>
                   </label>
                   <select
-                    value={branch}
+                    value={branchId}
                     onChange={(e) => {
-                      setBranch(e.target.value)
+                      setBranchId(e.target.value)
                       setFormErrors({ ...formErrors, branch: '' })
                     }}
                     className="w-full rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-yellow-500"
@@ -509,7 +415,7 @@ export default function Appointments() {
                         setSelectedTimeSlot('')
                         setFormErrors({ ...formErrors, appointmentDate: '' })
                       }}
-                      min={new Date('2026-02-10').toISOString().split('T')[0]}
+                      min={(() => { const d = new Date(); d.setDate(d.getDate() + 1); return d.toISOString().split('T')[0]; })()}
                       className="w-full rounded-lg border border-gray-200 pl-10 pr-4 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-yellow-500"
                     />
                   </div>
@@ -519,6 +425,7 @@ export default function Appointments() {
                       {formErrors.appointmentDate}
                     </p>
                   )}
+                  <p className="text-xs text-gray-500 mt-1">Appointments cannot be scheduled for today</p>
                 </div>
 
                 {/* Time Slots */}
@@ -528,43 +435,50 @@ export default function Appointments() {
                   </label>
                   {appointmentDate ? (
                     <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto">
-                      {timeSlots.map((slot) => {
-                        const used = dateSlotAvailability[slot.start] || 0
-                        const isFull = used >= 5
-                        const isSelected = selectedTimeSlot === slot.key
+                      {slotsLoading ? (
+                        <p className="col-span-2 text-sm text-gray-600 py-4">Loading slots...</p>
+                      ) : (
+                        timeSlots.map((slot) => {
+                          const used = slot.used ?? 0
+                          const capacity = slot.capacity ?? 5
+                          const isFull = used >= capacity
+                          const isSelected = selectedTimeSlot === slot.key
+                          const start = slot.slot_start ?? slot.start
+                          const end = slot.slot_end ?? slot.end
 
-                        return (
-                          <button
-                            key={slot.key}
-                            type="button"
-                            onClick={() => {
-                              if (!isFull) {
-                                setSelectedTimeSlot(slot.key)
-                                setFormErrors({ ...formErrors, selectedTimeSlot: '' })
-                              }
-                            }}
-                            disabled={isFull}
-                            className={`p-3 rounded-lg border-2 transition-all ${
-                              isSelected
-                                ? 'border-yellow-500 bg-yellow-50'
-                                : isFull
-                                ? 'border-gray-200 bg-gray-50 cursor-not-allowed opacity-50'
-                                : 'border-gray-200 bg-white hover:border-yellow-300'
-                            }`}
-                          >
-                            <p className="text-xs font-semibold text-gray-900">
-                              {slot.start} - {slot.end}
-                            </p>
-                            <p
-                              className={`text-xs mt-1 ${
-                                isFull ? 'text-red-600 font-bold' : 'text-gray-600'
+                          return (
+                            <button
+                              key={slot.key}
+                              type="button"
+                              onClick={() => {
+                                if (!isFull) {
+                                  setSelectedTimeSlot(slot.key)
+                                  setFormErrors({ ...formErrors, selectedTimeSlot: '' })
+                                }
+                              }}
+                              disabled={isFull}
+                              className={`p-3 rounded-lg border-2 transition-all ${
+                                isSelected
+                                  ? 'border-yellow-500 bg-yellow-50'
+                                  : isFull
+                                  ? 'border-gray-200 bg-gray-50 cursor-not-allowed opacity-50'
+                                  : 'border-gray-200 bg-white hover:border-yellow-300'
                               }`}
                             >
-                              {isFull ? 'Full' : `${used}/5`}
-                            </p>
-                          </button>
-                        )
-                      })}
+                              <p className="text-xs font-semibold text-gray-900">
+                                {start} - {end}
+                              </p>
+                              <p
+                                className={`text-xs mt-1 ${
+                                  isFull ? 'text-red-600 font-bold' : 'text-gray-600'
+                                }`}
+                              >
+                                {isFull ? 'Full' : `${used}/${capacity}`}
+                              </p>
+                            </button>
+                          )
+                        })
+                      )}
                     </div>
                   ) : (
                     <p className="text-xs text-gray-500 p-3 bg-gray-50 rounded-lg">

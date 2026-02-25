@@ -1,4 +1,33 @@
 const reportsService = require('../services/reports.service');
+const { pool } = require('../../config/database');
+
+/**
+ * Resolve effective branch for reports based on user role.
+ * STAFF: forced to their branch; MANAGER/ADMIN: use query param.
+ */
+async function resolveReportBranch(req, branchParam) {
+  const roles = req.user?.roles || [];
+  const isStaff = roles.includes('STAFF');
+  const isManager = roles.includes('MANAGER');
+  const isAdmin = roles.includes('ADMIN');
+
+  if (isStaff) {
+    const branchId = req.user?.branch_id;
+    if (!branchId) {
+      return { branch: null, error: 'Staff must be assigned to a branch' };
+    }
+    const [[row]] = await pool.query(
+      'SELECT branch_code FROM branches WHERE branch_id = ?',
+      [branchId]
+    );
+    if (!row) {
+      return { branch: null, error: 'Branch not found' };
+    }
+    return { branch: row.branch_code };
+  }
+
+  return { branch: branchParam || 'ALL' };
+}
 
 // @desc    Get daily report
 // @route   GET /api/v1/reports/daily
@@ -15,9 +44,14 @@ const getDailyReport = async (req, res, next) => {
       });
     }
 
+    const { branch: effectiveBranch, error: branchError } = await resolveReportBranch(req, branch);
+    if (branchError) {
+      return res.status(403).json({ success: false, message: branchError });
+    }
+
     const result = await reportsService.getDailyReport(
       date,
-      branch || 'ALL'
+      effectiveBranch || 'ALL'
     );
 
     if (!result.success) {
@@ -50,9 +84,14 @@ const getMonthlyReport = async (req, res, next) => {
       });
     }
 
+    const { branch: effectiveBranch, error: branchError } = await resolveReportBranch(req, branch);
+    if (branchError) {
+      return res.status(403).json({ success: false, message: branchError });
+    }
+
     const result = await reportsService.getMonthlyReport(
       month,
-      branch || 'ALL'
+      effectiveBranch || 'ALL'
     );
 
     if (!result.success) {
@@ -78,8 +117,13 @@ const getAuctionReport = async (req, res, next) => {
     console.log('🔨 Generating auction report');
     const { branch, status, overdueDays } = req.query;
 
+    const { branch: effectiveBranch, error: branchError } = await resolveReportBranch(req, branch);
+    if (branchError) {
+      return res.status(403).json({ success: false, message: branchError });
+    }
+
     const result = await reportsService.getAuctionReport(
-      branch || 'ALL',
+      effectiveBranch || 'ALL',
       status || 'ALL',
       parseInt(overdueDays) || 0
     );
