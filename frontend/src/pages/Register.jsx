@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { User, Lock, Mail, Phone, FileText } from 'lucide-react'
+import api from '../services/api'
 
 export default function Register() {
   const navigate = useNavigate()
@@ -17,24 +18,6 @@ export default function Register() {
   const [success, setSuccess] = useState(false)
   const [isLookupLoading, setIsLookupLoading] = useState(false)
 
-  const customerRegistry = {
-    '20012345678': {
-      fullName: 'Mr. TMHN Bandara',
-      email: 'bandara@example.com',
-      phone: '077 123 4567'
-    },
-    '200123456789': {
-      fullName: 'Mr. Customer Test',
-      email: 'customer.test@example.com',
-      phone: '071 234 5678'
-    },
-    '199978901234': {
-      fullName: 'Ms. K. Silva',
-      email: 'silva@example.com',
-      phone: '076 987 6543'
-    }
-  }
-
   const handleChange = (e) => {
     const { name, value } = e.target
     setFormData(prev => ({
@@ -43,7 +26,7 @@ export default function Register() {
     }))
   }
 
-  const handleLookup = () => {
+  const handleLookup = async () => {
     setError('')
     setSuccess(false)
 
@@ -53,29 +36,30 @@ export default function Register() {
     }
 
     setIsLookupLoading(true)
-    setTimeout(() => {
-      const customer = customerRegistry[formData.nic]
-      if (!customer) {
-        setError('Customer not found. Please contact the branch to register your details.')
+    try {
+      const res = await api.registerLookup(formData.nic)
+      if (res.success && res.data) {
         setFormData(prev => ({
           ...prev,
-          fullName: '',
-          email: '',
-          phone: ''
-        }))
-      } else {
-        setFormData(prev => ({
-          ...prev,
-          fullName: customer.fullName,
-          email: customer.email,
-          phone: customer.phone
+          fullName: res.data.fullName,
+          email: res.data.email,
+          phone: res.data.phone
         }))
       }
+    } catch (err) {
+      setError(err.message || 'Customer not found. Please contact the branch to register your details.')
+      setFormData(prev => ({
+        ...prev,
+        fullName: '',
+        email: '',
+        phone: ''
+      }))
+    } finally {
       setIsLookupLoading(false)
-    }, 700)
+    }
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
     setSuccess(false)
@@ -101,15 +85,16 @@ export default function Register() {
     }
 
     setIsLoading(true)
-    // Simulate registration
-    setTimeout(() => {
-      console.log('Registration attempt:', formData)
-      setIsLoading(false)
+    try {
+      await api.register(formData.nic, formData.password)
       setSuccess(true)
       setFormData({ nic: '', fullName: '', email: '', phone: '', password: '', confirmPassword: '' })
-      navigate('/customer')
-      // Here you would make an API call to register
-    }, 1000)
+      setTimeout(() => navigate('/login'), 1500)
+    } catch (err) {
+      setError(err.message || 'Registration failed. Please try again.')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -131,9 +116,6 @@ export default function Register() {
 
         {/* Register Card */}
         <div className="rounded-2xl bg-white p-8 shadow-2xl">
-          <div className="mb-4 rounded-lg bg-yellow-50 p-3 text-xs text-yellow-800 border border-yellow-200">
-            Testing: Use NIC 200123456789 and password Custome@123.
-          </div>
           {error && (
             <div className="mb-6 rounded-lg bg-red-50 p-4 text-sm text-red-700 border border-red-200">
               {error}

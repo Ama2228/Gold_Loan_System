@@ -43,24 +43,12 @@ export default function Home() {
       {/* Hero Section */}
       <section className="px-6 py-20 text-center">
         <div className="mx-auto max-w-4xl">
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-yellow-100 px-4 py-2 text-sm font-semibold text-yellow-800">
-            <TrendingUp className="h-4 w-4" />
-            Trusted Since 1995
-          </div>
           <h1 className="text-5xl font-bold text-gray-900 sm:text-6xl">
             Welcome to <span className="text-yellow-600">Smart Gold</span>
           </h1>
           <p className="mt-6 text-xl text-gray-600">
             Get instant cash loans against your gold jewelry with competitive rates and transparent terms
           </p>
-          <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
-            <button className="rounded-lg bg-yellow-500 px-8 py-4 text-lg font-semibold text-black transition-all hover:bg-yellow-600 hover:shadow-lg">
-              Calculate Your Loan
-            </button>
-            <button className="rounded-lg border-2 border-gray-300 bg-white px-8 py-4 text-lg font-semibold text-gray-900 transition-all hover:border-yellow-500 hover:shadow-md">
-              Visit Branch
-            </button>
-          </div>
         </div>
       </section>
 

@@ -1,12 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { Lock, User } from 'lucide-react'
-
-// Hardcoded staff credentials for testing
-const STAFF_CREDENTIALS = {
-  nic: '199978901234',
-  password: 'Staff@123'
-}
+import apiService from '../services/api'
 
 export default function Login() {
   const navigate = useNavigate()
@@ -15,7 +10,7 @@ export default function Login() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
     
@@ -26,17 +21,32 @@ export default function Login() {
 
     setIsLoading(true)
     
-    // Simulate login delay
-    setTimeout(() => {
-      // Validate against hardcoded credentials
-      if (nic === STAFF_CREDENTIALS.nic && password === STAFF_CREDENTIALS.password) {
-        // Redirect to role selection portal
-        navigate('/login-as')
-      } else {
-        setError('Invalid NIC or password. For testing, use NIC: 199978901234, Password: Staff@123')
-        setIsLoading(false)
+    try {
+      // Call backend API
+      const response = await apiService.login(nic, password)
+      
+      if (response.success) {
+        const user = response.data.user
+        const primaryRole = user.primaryRole
+        
+        // Redirect based on role from backend
+        if (primaryRole === 'ADMIN') {
+          navigate('/admin/dashboard')
+        } else if (primaryRole === 'MANAGER') {
+          navigate('/manager/dashboard')
+        } else if (primaryRole === 'STAFF') {
+          navigate('/login-as')
+        } else if (primaryRole === 'CUSTOMER') {
+          navigate('/customer')
+        } else {
+          navigate('/dashboard')
+        }
       }
-    }, 1000)
+    } catch (err) {
+      console.error('Login error:', err)
+      setError(err.message || 'Invalid NIC or password. Please try again.')
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -106,7 +116,7 @@ export default function Login() {
 
             {/* Forgot Password */}
             <div className="text-right">
-              <Link to="#" className="text-sm font-medium text-yellow-600 hover:text-yellow-700">
+              <Link to="/forgot-password" className="text-sm font-medium text-yellow-600 hover:text-yellow-700">
                 Forgot password?
               </Link>
             </div>
@@ -131,7 +141,7 @@ export default function Login() {
           {/* Register Link */}
           <div className="text-center">
             <p className="text-sm text-gray-600">
-              New staff member?{' '}
+              New Customer?{' '}
               <Link to="/register" className="font-semibold text-yellow-600 hover:text-yellow-700">
                 Register here
               </Link>
@@ -150,8 +160,9 @@ export default function Login() {
         <div className="mt-8 rounded-lg bg-yellow-500/10 p-4 border border-yellow-500/20 backdrop-blur">
           <p className="text-sm text-yellow-50">
             <strong>Test Credentials:</strong><br />
-            NIC: 199978901234<br />
-            Password: Staff@123
+            Staff - NIC: 199978901234, Password: Staff@123<br />
+            Manager - NIC: 199911223344, Password: Manager@123<br />
+            Admin - NIC: 200263000105, Password: Dewama.952
           </p>
         </div>
       </div>

@@ -29,9 +29,9 @@ const stats = [
 
 export default function Dashboard() {
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Transactions Overview</h1>
+    <div className="max-w-[1400px] mx-auto px-6 py-8 space-y-8">
+      <div className="border-b-2 border-yellow-500 pb-4">
+        <h1 className="text-3xl font-bold text-yellow-600">Transactions Overview</h1>
         <p className="mt-2 text-gray-600">Track all pawning transactions and analytics</p>
       </div>
 
@@ -45,7 +45,7 @@ export default function Dashboard() {
       {/* Branch Performance and Priorities */}
       <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
         {/* Branch Performance */}
-        <div className="rounded-xl bg-gray-50 p-6 ring-1 ring-gray-200">
+        <div className="rounded-lg bg-white p-6 border border-gray-200 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-lg font-semibold text-gray-900">Branch performance</h2>
@@ -76,7 +76,7 @@ export default function Dashboard() {
         </div>
 
         {/* Today's Priorities */}
-        <div className="rounded-xl bg-gray-50 p-6 ring-1 ring-gray-200">
+        <div className="rounded-lg bg-white p-6 border border-gray-200 shadow-sm">
           <h2 className="text-lg font-semibold text-gray-900">Today's priorities</h2>
           <ul className="mt-4 space-y-3 text-sm text-gray-700">
             {[

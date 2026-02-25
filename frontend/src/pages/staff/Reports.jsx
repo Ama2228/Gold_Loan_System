@@ -2,16 +2,17 @@ import { useState } from 'react'
 import { BarChart3, TrendingUp, Download } from 'lucide-react'
 
 const MonthlyReports = () => (
-  <div className="space-y-6">
+  <div className="max-w-[1400px] mx-auto px-6 py-8 space-y-6">
     <div className="border-b-2 border-yellow-500 pb-4">
       <h1 className="text-3xl font-bold text-yellow-600">Monthly Reports</h1>
+      <p className="mt-2 text-gray-600">View monthly transaction reports and statistics</p>
     </div>
 
     {/* Month Selection */}
-    <div className="bg-gray-50 p-6 rounded-lg flex gap-4 items-end">
+    <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm flex flex-wrap gap-4 items-end">
       <div>
         <label className="block text-sm font-semibold text-gray-700 mb-2">Select Month</label>
-        <select className="rounded-lg border border-gray-300 px-4 py-2 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500">
+        <select className="rounded-lg border border-gray-300 px-4 py-2 text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500">
           <option>January 2026</option>
           <option>December 2025</option>
           <option>November 2025</option>
@@ -25,31 +26,32 @@ const MonthlyReports = () => (
 
     {/* Summary Stats */}
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-lg border-l-4 border-blue-500">
-        <p className="text-sm font-semibold text-blue-600 mb-2">Total Transactions</p>
-        <p className="text-3xl font-bold text-blue-800">245</p>
-        <p className="text-xs text-blue-600 mt-2">↑ 12% from last month</p>
+      <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-lg border border-blue-200 shadow-sm">
+        <p className="text-sm font-semibold text-blue-700 mb-2">Total Transactions</p>
+        <p className="text-3xl font-bold text-blue-900">245</p>
+        <p className="text-xs text-blue-700 mt-2">↑ 12% from last month</p>
       </div>
-      <div className="bg-gradient-to-br from-green-50 to-green-100 p-6 rounded-lg border-l-4 border-green-500">
-        <p className="text-sm font-semibold text-green-600 mb-2">Total Amount Loaned</p>
-        <p className="text-3xl font-bold text-green-800">₨ 4.5M</p>
-        <p className="text-xs text-green-600 mt-2">↑ 8% from last month</p>
+      <div className="bg-gradient-to-br from-green-50 to-green-100 p-6 rounded-lg border border-green-200 shadow-sm">
+        <p className="text-sm font-semibold text-green-700 mb-2">Total Amount Loaned</p>
+        <p className="text-3xl font-bold text-green-900">₨ 4.5M</p>
+        <p className="text-xs text-green-700 mt-2">↑ 8% from last month</p>
       </div>
-      <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-6 rounded-lg border-l-4 border-purple-500">
-        <p className="text-sm font-semibold text-purple-600 mb-2">Total Renewals</p>
-        <p className="text-3xl font-bold text-purple-800">89</p>
-        <p className="text-xs text-purple-600 mt-2">↓ 5% from last month</p>
+      <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-6 rounded-lg border border-purple-200 shadow-sm">
+        <p className="text-sm font-semibold text-purple-700 mb-2">Total Renewals</p>
+        <p className="text-3xl font-bold text-purple-900">89</p>
+        <p className="text-xs text-purple-700 mt-2">↓ 5% from last month</p>
       </div>
-      <div className="bg-gradient-to-br from-orange-50 to-orange-100 p-6 rounded-lg border-l-4 border-orange-500">
-        <p className="text-sm font-semibold text-orange-600 mb-2">Interest Collected</p>
-        <p className="text-3xl font-bold text-orange-800">₨ 450K</p>
-        <p className="text-xs text-orange-600 mt-2">↑ 15% from last month</p>
+      <div className="bg-gradient-to-br from-orange-50 to-orange-100 p-6 rounded-lg border border-orange-200 shadow-sm">
+        <p className="text-sm font-semibold text-orange-700 mb-2">Interest Collected</p>
+        <p className="text-3xl font-bold text-orange-900">₨ 450K</p>
+        <p className="text-xs text-orange-700 mt-2">↑ 15% from last month</p>
       </div>
     </div>
 
     {/* Detailed Table */}
-    <div className="overflow-x-auto bg-gray-50 p-6 rounded-lg">
-      <table className="w-full text-sm">
+    <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
         <thead>
           <tr className="border-b-2 border-yellow-500">
             <th className="px-4 py-3 text-left font-semibold text-gray-900">Date</th>
@@ -79,18 +81,20 @@ const MonthlyReports = () => (
           ))}
         </tbody>
       </table>
+      </div>
     </div>
   </div>
 )
 
 const DailyReports = () => (
-  <div className="space-y-6">
+  <div className="max-w-[1400px] mx-auto px-6 py-8 space-y-6">
     <div className="border-b-2 border-yellow-500 pb-4">
       <h1 className="text-3xl font-bold text-yellow-600">Daily Reports</h1>
+      <p className="mt-2 text-gray-600">View daily transaction reports and activity</p>
     </div>
 
     {/* Date Selection */}
-    <div className="bg-gray-50 p-6 rounded-lg flex gap-4 items-end">
+    <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm flex flex-wrap gap-4 items-end">
       <div>
         <label className="block text-sm font-semibold text-gray-700 mb-2">Select Date</label>
         <input
@@ -107,31 +111,32 @@ const DailyReports = () => (
 
     {/* Daily Summary */}
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-lg border-l-4 border-blue-500">
-        <p className="text-sm font-semibold text-blue-600 mb-2">Today's Transactions</p>
-        <p className="text-3xl font-bold text-blue-800">18</p>
-        <p className="text-xs text-blue-600 mt-2">Till now</p>
+      <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-lg border border-blue-200 shadow-sm">
+        <p className="text-sm font-semibold text-blue-700 mb-2">Today's Transactions</p>
+        <p className="text-3xl font-bold text-blue-900">18</p>
+        <p className="text-xs text-blue-700 mt-2">Till now</p>
       </div>
-      <div className="bg-gradient-to-br from-green-50 to-green-100 p-6 rounded-lg border-l-4 border-green-500">
-        <p className="text-sm font-semibold text-green-600 mb-2">Total Amount</p>
-        <p className="text-3xl font-bold text-green-800">₨ 1.8M</p>
-        <p className="text-xs text-green-600 mt-2">Across all branches</p>
+      <div className="bg-gradient-to-br from-green-50 to-green-100 p-6 rounded-lg border border-green-200 shadow-sm">
+        <p className="text-sm font-semibold text-green-700 mb-2">Total Amount</p>
+        <p className="text-3xl font-bold text-green-900">₨ 1.8M</p>
+        <p className="text-xs text-green-700 mt-2">Across all branches</p>
       </div>
-      <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-6 rounded-lg border-l-4 border-purple-500">
-        <p className="text-sm font-semibold text-purple-600 mb-2">Interest Collected</p>
-        <p className="text-3xl font-bold text-purple-800">₨ 180K</p>
-        <p className="text-xs text-purple-600 mt-2">Service charges</p>
+      <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-6 rounded-lg border border-purple-200 shadow-sm">
+        <p className="text-sm font-semibold text-purple-700 mb-2">Interest Collected</p>
+        <p className="text-3xl font-bold text-purple-900">₨ 180K</p>
+        <p className="text-xs text-purple-700 mt-2">Service charges</p>
       </div>
-      <div className="bg-gradient-to-br from-orange-50 to-orange-100 p-6 rounded-lg border-l-4 border-orange-500">
-        <p className="text-sm font-semibold text-orange-600 mb-2">Branch Performance</p>
-        <p className="text-3xl font-bold text-orange-800">5/5</p>
-        <p className="text-xs text-orange-600 mt-2">All branches active</p>
+      <div className="bg-gradient-to-br from-orange-50 to-orange-100 p-6 rounded-lg border border-orange-200 shadow-sm">
+        <p className="text-sm font-semibold text-orange-700 mb-2">Branch Performance</p>
+        <p className="text-3xl font-bold text-orange-900">5/5</p>
+        <p className="text-xs text-orange-700 mt-2">All branches active</p>
       </div>
     </div>
 
     {/* Daily Transactions */}
-    <div className="overflow-x-auto bg-gray-50 p-6 rounded-lg">
-      <table className="w-full text-sm">
+    <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
         <thead>
           <tr className="border-b-2 border-yellow-500">
             <th className="px-4 py-3 text-left font-semibold text-gray-900">Time</th>
@@ -165,6 +170,7 @@ const DailyReports = () => (
           ))}
         </tbody>
       </table>
+      </div>
     </div>
   </div>
 )
@@ -173,7 +179,7 @@ export default function Reports() {
   const [tab, setTab] = useState('monthly')
 
   return (
-    <div>
+    <div className="max-w-[1400px] mx-auto px-6 py-8">
       {/* Tabs */}
       <div className="flex gap-4 mb-6 border-b border-gray-200">
         <button

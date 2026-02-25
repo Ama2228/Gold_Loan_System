@@ -1,22 +1,31 @@
 import { useNavigate, Link } from 'react-router-dom'
 import { Users, Shield, LogOut } from 'lucide-react'
+import apiService from '../services/api'
 
 export default function LoginAs() {
   const navigate = useNavigate()
+  const userRole = sessionStorage.getItem('userRole')
+  const userNic = sessionStorage.getItem('userNIC')
 
   const handleStaffLogin = () => {
-    // Redirect to staff dashboard
-    navigate('/staff/transactions/new')
+    // If user is a MANAGER, route to manager dashboard
+    if (userRole === 'MANAGER') {
+      navigate('/manager/dashboard')
+    } else {
+      // Redirect to staff dashboard
+      navigate('/staff/transactions/new')
+    }
   }
 
   const handleCustomerLogin = () => {
-    // Redirect to customer dashboard (when created)
+    // Redirect to customer dashboard
     navigate('/customer')
   }
 
   const handleLogout = () => {
-    // Clear session and go back to home
-    navigate('/')
+    // Clear session and tokens, go back to login
+    apiService.logout()
+    navigate('/login')
   }
 
   return (
@@ -107,7 +116,7 @@ export default function LoginAs() {
 
         {/* Footer */}
         <div className="mt-8 text-center text-sm text-gray-400">
-          <p>Logged in as: <span className="text-yellow-300 font-semibold">199978901234</span></p>
+          <p>Logged in as: <span className="text-yellow-300 font-semibold">{userNic}</span> ({userRole})</p>
         </div>
       </div>
     </div>
