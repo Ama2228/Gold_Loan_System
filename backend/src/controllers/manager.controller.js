@@ -9,7 +9,8 @@ const reversePawningService = require('../services/reversePawning.service');
 async function getDashboard(req, res) {
   try {
     const branchId = req.user.branch_id;
-    const stats = await managerService.getDashboardStats(branchId);
+    const { from, to } = req.query;
+    const stats = await managerService.getDashboardStats(branchId, { from, to });
     res.json({
       success: true,
       data: stats

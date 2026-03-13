@@ -13,6 +13,10 @@ const {
   getCities,
   getDistricts
 } = require('../controllers/staffCustomers.controller');
+const {
+  getCustomerRating,
+  getCustomerRatingForRequest
+} = require('../controllers/customerRating.controller');
 
 const router = express.Router();
 
@@ -50,6 +54,16 @@ router.get('/search/:query', searchCustomers);
 // @desc    Get customer inquiry summary (profile + tickets + transactions)
 // @access  Private/Staff/Manager
 router.get('/:customerId/inquiry', getCustomerInquiry);
+
+// @route   GET /api/v1/staff/customers/:customerId/rating
+// @desc    Get customer rating based on historical behavior
+// @access  Private/Staff/Manager
+router.get('/:customerId/rating', getCustomerRating);
+
+// @route   POST /api/v1/staff/customers/:customerId/rating/preview
+// @desc    Get rating preview for a new requested loan amount
+// @access  Private/Staff/Manager
+router.post('/:customerId/rating/preview', getCustomerRatingForRequest);
 
 // @route   GET /api/v1/staff/customers/:customerId
 // @desc    Get customer by ID

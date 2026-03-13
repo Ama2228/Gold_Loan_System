@@ -232,7 +232,7 @@ class PawnTicketsService {
       // ===== VALIDATION PHASE =====
       
       // 1. Validate required fields
-      const { customer_id, branch_id, articles, pawning_period_months, interest_percentage } = ticketData;
+      const { customer_id, branch_id, articles, pawning_period_months, interest_percentage, requested_loan_amount } = ticketData;
       
       if (!customer_id || !branch_id || !articles || !pawning_period_months) {
         throw new Error('Missing required fields: customer_id, branch_id, articles, pawning_period_months');
@@ -287,19 +287,32 @@ class PawnTicketsService {
       // 7. Calculate advance amount
       const advanceAmount = await this.calculateAdvanceAmount(articles, interest_percentage || 100);
 
-      // 8. Validate minimum loan amount (5000)
-      if (advanceAmount < 5000) {
-        throw new Error(`Advance amount (${advanceAmount}) is below minimum loan amount (5000)`);
+      // 8. Determine final loan amount (eligible max or requested lower amount)
+      let finalLoanAmount = advanceAmount;
+      if (requested_loan_amount !== undefined && requested_loan_amount !== null) {
+        const requested = Math.round(Number(requested_loan_amount) * 100) / 100;
+        if (!Number.isFinite(requested) || requested <= 0) {
+          throw new Error('Requested loan amount must be a number greater than 0');
+        }
+        if (requested > advanceAmount) {
+          throw new Error(`Requested loan amount (${requested}) cannot exceed eligible amount (${advanceAmount})`);
+        }
+        finalLoanAmount = requested;
       }
 
-      // 9. Calculate due date
+      // 9. Validate minimum loan amount (5000)
+      if (finalLoanAmount < 5000) {
+        throw new Error(`Loan amount (${finalLoanAmount}) is below minimum loan amount (5000)`);
+      }
+
+      // 10. Calculate due date
       const issueDate = new Date().toISOString().split('T')[0];
       const dueDate = this.calculateDueDate(issueDate, pawning_period_months);
 
-      // 10. Get annual interest rate
+      // 11. Get annual interest rate
       const annualInterestRate = await this.getAnnualInterestRate(pawning_period_months);
 
-      // 11. Generate receipt number
+      // 12. Generate receipt number
       const receiptNo = await this.generateReceiptNo(branchInfo.branch_code, branch_id);
 
       // ===== TRANSACTION PHASE =====
@@ -323,7 +336,7 @@ class PawnTicketsService {
           userInfo.user_id,
           issueDate,
           dueDate,
-          advanceAmount,
+          finalLoanAmount,
           annualInterestRate,
           'MONTHLY', // default interest_type
           'ACTIVE'
@@ -398,7 +411,7 @@ class PawnTicketsService {
           branch_name: branchInfo.branch_name,
           issue_date: issueDate,
           due_date: dueDate,
-          loan_amount: advanceAmount,
+          loan_amount: finalLoanAmount,
           pawning_period_months: pawning_period_months,
           articles_count: articles.length,
           status: 'ACTIVE',

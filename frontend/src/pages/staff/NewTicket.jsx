@@ -34,6 +34,7 @@ export default function NewTicket() {
   const [submitError, setSubmitError] = useState('')
   const [submitSuccess, setSubmitSuccess] = useState(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [requestedLoanAmount, setRequestedLoanAmount] = useState('')
 
   const [currentArticle, setCurrentArticle] = useState({
     item_type: 'Chain',
@@ -135,7 +136,11 @@ export default function NewTicket() {
   const totalAssessedValue = articles.reduce((sum, a) => sum + calculateArticleAssessedValue(a), 0)
   const advanceAmount = (totalAssessedValue * INTEREST_PERCENTAGE) / 100
   const roundedAdvance = Math.round(advanceAmount * 100) / 100
-  const minLoanMet = roundedAdvance >= 5000
+  const parsedRequestedLoan = requestedLoanAmount === '' ? NaN : parseFloat(requestedLoanAmount)
+  const hasRequestedLoan = Number.isFinite(parsedRequestedLoan)
+  const finalLoanAmount = hasRequestedLoan ? Math.round(parsedRequestedLoan * 100) / 100 : roundedAdvance
+  const minLoanMet = finalLoanAmount >= 5000
+  const maxLoanMet = finalLoanAmount <= roundedAdvance
 
   const getDueDate = () => {
     const d = new Date()
@@ -217,6 +222,10 @@ export default function NewTicket() {
       setSubmitError('Advance amount must be at least Rs. 5,000.')
       return
     }
+    if (!maxLoanMet) {
+      setSubmitError(`Requested pawn amount cannot exceed eligible amount (Rs. ${roundedAdvance.toLocaleString()}).`)
+      return
+    }
 
     try {
       setIsSubmitting(true)
@@ -225,6 +234,7 @@ export default function NewTicket() {
         branch_id: branchId,
         pawning_period_months: pawningPeriodMonths,
         interest_percentage: INTEREST_PERCENTAGE,
+        requested_loan_amount: finalLoanAmount,
         articles: articles.map(a => ({
           item_type: a.item_type,
           quantity: a.quantity,
@@ -252,6 +262,7 @@ export default function NewTicket() {
           purity_karat: karatRates[0]?.karat ?? '',
           notes: ''
         })
+        setRequestedLoanAmount('')
       }
     } catch (err) {
       setSubmitError(err.message || 'Failed to create pawn ticket.')
@@ -504,12 +515,32 @@ export default function NewTicket() {
               <p className="text-2xl font-bold text-yellow-600">Rs. {totalAssessedValue.toLocaleString()}</p>
             </div>
             <div>
-              <p className="text-sm font-semibold text-gray-600">Advance Amount</p>
+              <p className="text-sm font-semibold text-gray-600">Eligible Amount</p>
               <p className="text-2xl font-bold text-gray-900">Rs. {roundedAdvance.toLocaleString()}</p>
               {!minLoanMet && articles.length > 0 && (
                 <p className="text-xs text-red-600 mt-1">Minimum Rs. 5,000 required</p>
               )}
+              {!maxLoanMet && articles.length > 0 && (
+                <p className="text-xs text-red-600 mt-1">Requested amount cannot exceed eligible amount</p>
+              )}
             </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
+            <label className="block text-sm font-semibold text-gray-700 mb-2">Requested Pawn Amount (Rs.)</label>
+            <input
+              type="number"
+              step="0.01"
+              min="5000"
+              max={roundedAdvance || undefined}
+              value={requestedLoanAmount}
+              onChange={(e) => setRequestedLoanAmount(e.target.value)}
+              placeholder={`Default eligible amount: ${roundedAdvance.toLocaleString()}`}
+              className="w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+            />
+            <p className="mt-2 text-xs text-gray-600">
+              Leave empty to grant full eligible amount. Enter a lower amount if customer requests less.
+            </p>
           </div>
         </div>
 
@@ -583,8 +614,12 @@ export default function NewTicket() {
                 <span className="font-semibold text-yellow-600">Rs. {totalAssessedValue.toLocaleString()}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Advance Amount</span>
+                <span className="text-gray-600">Eligible Amount</span>
                 <span className="font-semibold text-yellow-600">Rs. {roundedAdvance.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Grant Amount</span>
+                <span className="font-semibold text-yellow-600">Rs. {finalLoanAmount.toLocaleString()}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Due Date</span>
@@ -593,7 +628,7 @@ export default function NewTicket() {
             </div>
             <button
               onClick={handleSave}
-              disabled={isSubmitting || !selectedCustomer || articles.length === 0 || !minLoanMet}
+              disabled={isSubmitting || !selectedCustomer || articles.length === 0 || !minLoanMet || !maxLoanMet}
               className="w-full mt-6 rounded-lg bg-yellow-500 px-6 py-3 text-black font-semibold hover:bg-yellow-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {isSubmitting ? 'Saving...' : 'Save'}

@@ -18,6 +18,7 @@ class PawnTicketsController {
    *   branch_id: number,
    *   pawning_period_months: number (3/6/12),
    *   interest_percentage: number (optional, default 100),
+  *   requested_loan_amount: number (optional, must be <= eligible amount),
    *   articles: [
    *     {
    *       item_type: string,
@@ -32,7 +33,7 @@ class PawnTicketsController {
    */
   async createPawnTicket(req, res) {
     try {
-      const { customer_id, branch_id, pawning_period_months, interest_percentage, articles } = req.body;
+      const { customer_id, branch_id, pawning_period_months, interest_percentage, requested_loan_amount, articles } = req.body;
 
       // Basic validation
       if (!customer_id || !branch_id || !pawning_period_months || !articles) {
@@ -78,6 +79,16 @@ class PawnTicketsController {
         });
       }
 
+      if (requested_loan_amount !== undefined && requested_loan_amount !== null) {
+        const requested = Number(requested_loan_amount);
+        if (Number.isNaN(requested) || requested <= 0) {
+          return res.status(400).json({
+            success: false,
+            message: 'requested_loan_amount must be a number greater than 0'
+          });
+        }
+      }
+
       // Create ticket
       const result = await pawnTicketsService.createPawnTicket(
         {
@@ -85,6 +96,7 @@ class PawnTicketsController {
           branch_id,
           pawning_period_months,
           interest_percentage: interest_percentage || 100,
+          requested_loan_amount,
           articles
         },
         {

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Search } from 'lucide-react'
 import api from '../../services/api'
+import CustomerRatingCard from '../../components/CustomerRatingCard'
 
 function useDebounce(value, delay) {
   const [debouncedValue, setDebouncedValue] = useState(value)
@@ -19,6 +20,9 @@ export default function CustomerInquiry() {
   const [loadingSearch, setLoadingSearch] = useState(false)
   const [loadingDetail, setLoadingDetail] = useState(false)
   const [error, setError] = useState(null)
+  const [rating, setRating] = useState(null)
+  const [ratingLoading, setRatingLoading] = useState(false)
+  const [ratingError, setRatingError] = useState(null)
 
   const debouncedSearch = useDebounce(searchTerm.trim(), 300)
 
@@ -43,6 +47,10 @@ export default function CustomerInquiry() {
     setInquiryData(null)
     setError(null)
     setLoadingDetail(true)
+    setRating(null)
+    setRatingError(null)
+    setRatingLoading(true)
+
     api.getStaffCustomerInquiry(customer.customer_id)
       .then(res => setInquiryData(res.data))
       .catch(err => {
@@ -50,6 +58,14 @@ export default function CustomerInquiry() {
         setInquiryData(null)
       })
       .finally(() => setLoadingDetail(false))
+
+    api.getCustomerRating(customer.customer_id)
+      .then(res => setRating(res.data))
+      .catch(err => {
+        setRatingError(err.message || 'Failed to load customer rating')
+        setRating(null)
+      })
+      .finally(() => setRatingLoading(false))
   }, [])
 
   const c = inquiryData?.customer
@@ -199,6 +215,26 @@ export default function CustomerInquiry() {
                 <p className="text-sm text-gray-600">Last Transaction</p>
               </div>
             </div>
+          </div>
+
+          {/* Customer Rating */}
+          <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-bold text-gray-900">Customer Rating</h3>
+              {ratingLoading && (
+                <span className="text-xs text-gray-500">Calculating rating...</span>
+              )}
+              {!ratingLoading && ratingError && (
+                <span className="text-xs text-red-600">{ratingError}</span>
+              )}
+            </div>
+            <CustomerRatingCard
+              score={rating?.score}
+              label={rating?.label}
+              metrics={rating?.metrics}
+              explanation={rating?.explanation}
+              compact={false}
+            />
           </div>
 
           {/* Recent Transactions */}

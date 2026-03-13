@@ -145,6 +145,18 @@ class ApiService {
     return this.get(`/staff/customers/${customerId}/inquiry`);
   }
 
+  // ========== CUSTOMER RATING (Staff) ==========
+
+  async getCustomerRating(customerId) {
+    return this.get(`/staff/customers/${customerId}/rating`);
+  }
+
+  async getCustomerRatingPreview(customerId, requestedAmount) {
+    return this.post(`/staff/customers/${customerId}/rating/preview`, {
+      requestedAmount: parseFloat(requestedAmount),
+    });
+  }
+
   // ========== STAFF APPOINTMENTS ==========
 
   async getStaffAppointments({ branchId, date, status, page, limit }) {
@@ -171,8 +183,12 @@ class ApiService {
 
   // ========== MANAGER ==========
 
-  async getManagerDashboard() {
-    const res = await this.get('/manager/dashboard');
+  async getManagerDashboard(params = {}) {
+    const search = new URLSearchParams();
+    if (params.from) search.set('from', params.from);
+    if (params.to) search.set('to', params.to);
+    const qs = search.toString();
+    const res = await this.get(`/manager/dashboard${qs ? `?${qs}` : ''}`);
     return res;
   }
 
