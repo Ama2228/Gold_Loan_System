@@ -4,7 +4,7 @@ export function Sidebar() {
   return `
     <aside class="flex flex-col gap-6 border-r border-white/10 bg-slate-950/60 px-6 py-8">
       <div class="flex items-center gap-3">
-        <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-brand-500 text-slate-950 font-black">SG</div>
+        <img src="/BOC%20logo.jpg" alt="BOC logo" class="h-10 w-10 rounded-2xl object-cover" />
         <div>
           <p class="text-sm font-semibold text-slate-200">Smart Gold</p>
           <p class="text-xs text-slate-400">Dashboard</p>

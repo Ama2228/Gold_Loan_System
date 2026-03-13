@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../../services/api'
-import CustomerHeader from '../../components/CustomerHeader'
 
 function formatDate(d) {
   if (!d) return '—'
@@ -101,6 +100,11 @@ export default function CustomerDashboard() {
   const notificationsPreview = notifications.slice(0, 5)
   const { customerInfo, activeReceiptCount, totalLoanAmount, overdueCount, totalOutstanding, allActiveTickets, receiptsNeedingAttention, recentActivity } = dashboardData
 
+  const handleLogout = () => {
+    api.logout()
+    navigate('/login')
+  }
+
   const handleViewReceipt = (receiptNo) => {
     navigate('/customer/receipts', { state: { selectedReceiptNo: receiptNo } })
   }
@@ -111,7 +115,38 @@ export default function CustomerDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <CustomerHeader />
+      <nav className="sticky top-0 z-50 bg-gradient-to-r from-yellow-500 to-yellow-600 shadow-lg">
+        <div className="max-w-[1400px] mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <img
+                src="/BOC%20logo.jpg"
+                alt="BOC logo"
+                className="h-10 w-10 rounded-lg bg-black object-cover shadow-md"
+              />
+              <div>
+                <h1 className="text-lg font-bold text-black">Smart Gold</h1>
+                <p className="text-xs text-black/70">Customer Dashboard</p>
+              </div>
+            </div>
+
+            <nav className="hidden md:flex items-center gap-3 text-sm font-semibold text-black">
+              <button onClick={() => navigate('/customer/receipts')} className="rounded-md px-3 py-2 transition-all hover:bg-yellow-700/50">My Receipts</button>
+              <span className="text-black/40">|</span>
+              <button onClick={() => navigate('/customer/part-payments')} className="rounded-md px-3 py-2 transition-all hover:bg-yellow-700/50">Part Payments</button>
+              <span className="text-black/40">|</span>
+              <button onClick={() => navigate('/customer/appointments')} className="rounded-md px-3 py-2 transition-all hover:bg-yellow-700/50">Appointments</button>
+              <span className="text-black/40">|</span>
+              <button onClick={() => navigate('/customer/notifications')} className="rounded-md px-3 py-2 transition-all hover:bg-yellow-700/50">Notifications</button>
+            </nav>
+
+            <div className="flex items-center gap-4">
+              <button onClick={() => navigate('/customer/profile')} className="rounded-full bg-black/20 px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-black/30">Profile</button>
+              <button onClick={handleLogout} className="rounded-md bg-red-500 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-600">Logout</button>
+            </div>
+          </div>
+        </div>
+      </nav>
 
       <main className="px-6 py-8">
         <div className="max-w-[1400px] mx-auto space-y-6">

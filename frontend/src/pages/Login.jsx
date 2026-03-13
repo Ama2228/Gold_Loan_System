@@ -55,9 +55,11 @@ export default function Login() {
         {/* Logo */}
         <div className="mb-8 text-center">
           <div className="flex justify-center mb-4">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-yellow-400 to-yellow-600 font-black text-gray-900 shadow-2xl text-2xl">
-              SG
-            </div>
+            <img
+              src="/BOC%20logo.jpg"
+              alt="BOC logo"
+              className="h-16 w-16 rounded-2xl object-cover shadow-2xl"
+            />
           </div>
           <h1 className="text-3xl font-bold text-white">
             <span className="text-white">Smart</span>

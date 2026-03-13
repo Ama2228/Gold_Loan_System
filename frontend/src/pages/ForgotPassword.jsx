@@ -96,9 +96,11 @@ export default function ForgotPassword() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-black font-bold text-yellow-400 shadow-md mx-auto mb-4">
-            SG
-          </div>
+          <img
+            src="/BOC%20logo.jpg"
+            alt="BOC logo"
+            className="h-12 w-12 rounded-lg bg-black object-cover shadow-md mx-auto mb-4"
+          />
           <h1 className="text-2xl font-bold text-gray-900">Smart Gold</h1>
           <p className="text-sm text-gray-600 mt-1">Password Recovery</p>
         </div>

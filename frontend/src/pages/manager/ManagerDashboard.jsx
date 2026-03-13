@@ -73,9 +73,11 @@ export default function ManagerDashboard() {
           <div className="flex items-center justify-between">
             {/* Brand */}
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-black font-bold text-yellow-400 shadow-md">
-                SG
-              </div>
+              <img
+                src="/BOC%20logo.jpg"
+                alt="BOC logo"
+                className="h-10 w-10 rounded-lg bg-black object-cover shadow-md"
+              />
               <div>
                 <h1 className="text-xl font-bold text-black">Smart Gold</h1>
                 <p className="text-xs text-black/70">Manager Dashboard</p>

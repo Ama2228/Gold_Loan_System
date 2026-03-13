@@ -15,9 +15,11 @@ export default function Home() {
       <nav className="border-b border-gray-200 bg-white/80 backdrop-blur-sm">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
           <div className="flex items-center gap-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-yellow-400 to-yellow-600 font-black text-black shadow-lg">
-              SG
-            </div>
+            <img
+              src="/BOC%20logo.jpg"
+              alt="BOC logo"
+              className="h-10 w-10 rounded-xl object-cover shadow-lg"
+            />
             <div className="text-xl font-bold">
               <span className="text-gray-900">Smart</span>
               <span className="text-yellow-600"> Gold</span>
@@ -165,9 +167,11 @@ export default function Home() {
           <div className="grid gap-8 md:grid-cols-4">
             <div>
               <div className="flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-yellow-400 to-yellow-600 font-black text-black">
-                  SG
-                </div>
+                <img
+                  src="/BOC%20logo.jpg"
+                  alt="BOC logo"
+                  className="h-8 w-8 rounded-lg object-cover"
+                />
                 <div className="text-lg font-bold">
                   <span className="text-white">Smart</span>
                   <span className="text-yellow-400"> Gold</span>
