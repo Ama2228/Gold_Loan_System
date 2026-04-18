@@ -1,218 +1,160 @@
 import { Link } from 'react-router-dom'
-import { TrendingUp, Shield, Clock, ArrowRight } from 'lucide-react'
+import { ArrowRight, Shield, Sparkles, Clock3, BadgePercent, Landmark } from 'lucide-react'
 
 export default function Home() {
   const goldRates = [
-    { karatage: '24K', purity: '99.9%', advancePerGram: 'LKR 8,500', interestRate: '1.2%' },
-    { karatage: '22K', purity: '91.6%', advancePerGram: 'LKR 7,800', interestRate: '1.2%' },
-    { karatage: '18K', purity: '75.0%', advancePerGram: 'LKR 6,400', interestRate: '1.3%' },
-    { karatage: '14K', purity: '58.5%', advancePerGram: 'LKR 4,900', interestRate: '1.4%' }
+    { karatage: '24K', purity: '99.9%', advancePerGram: 'LKR 8,500' },
+    { karatage: '22K', purity: '91.6%', advancePerGram: 'LKR 7,800' },
+    { karatage: '20K', purity: '83.3%', advancePerGram: 'LKR 7,100' },
+    { karatage: '18K', purity: '75.0%', advancePerGram: 'LKR 6,400' }
+  ]
+
+  const highlights = [
+    { icon: Clock3, title: 'Fast processing', text: 'Quick evaluation and smooth handling at the branch.' },
+    { icon: Shield, title: 'Safe storage', text: 'Gold items are logged, protected, and securely managed.' },
+    { icon: BadgePercent, title: 'One annual rate', text: 'A single annual interest rate applies to every karatage.' }
   ]
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-yellow-50">
-      {/* Navigation */}
-      <nav className="border-b border-gray-200 bg-white/80 backdrop-blur-sm">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-2">
-            <img
-              src="/BOC%20logo.jpg"
-              alt="BOC logo"
-              className="h-10 w-10 rounded-xl object-cover shadow-lg"
-            />
-            <div className="text-xl font-bold">
-              <span className="text-gray-900">Smart</span>
-              <span className="text-yellow-600"> Gold</span>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <Link
-              to="/login"
-              className="rounded-lg border-2 border-gray-900 px-6 py-2 text-sm font-semibold text-gray-900 transition-all hover:bg-gray-900 hover:text-white"
-            >
-              Login
-            </Link>
-            <Link
-              to="/register"
-              className="rounded-lg bg-yellow-500 px-6 py-2.5 text-sm font-semibold text-black transition-all hover:bg-yellow-600 hover:shadow-md"
-            >
-              Register
-            </Link>
-          </div>
-        </div>
-      </nav>
-
-      {/* Hero Section */}
-      <section className="px-6 py-20 text-center">
-        <div className="mx-auto max-w-4xl">
-          <h1 className="text-5xl font-bold text-gray-900 sm:text-6xl">
-            Welcome to <span className="text-yellow-600">Smart Gold</span>
-          </h1>
-          <p className="mt-6 text-xl text-gray-600">
-            Get instant cash loans against your gold jewelry with competitive rates and transparent terms
-          </p>
-        </div>
-      </section>
-
-      {/* Features */}
-      <section className="border-t border-gray-200 bg-white px-6 py-16">
-        <div className="mx-auto max-w-7xl">
-          <div className="grid gap-8 md:grid-cols-3">
-            <div className="text-center">
-              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-yellow-100">
-                <Clock className="h-8 w-8 text-yellow-600" />
+    <div
+      className="min-h-screen bg-cover bg-center bg-no-repeat text-slate-900"
+      style={{ backgroundImage: "url('/Background.png')" }}
+    >
+      <div className="min-h-screen bg-amber-50/98 backdrop-blur-[1px]">
+        <nav className="border-b border-slate-200 bg-white shadow-sm">
+          <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+            <div className="flex items-center gap-3">
+              <img
+                src="/BOC%20logo.jpg"
+                alt="Smart Gold logo"
+                className="h-11 w-11 rounded-2xl border border-slate-200 object-cover shadow-lg shadow-black/10"
+              />
+              <div>
+                <h1 className="text-xl font-semibold text-slate-950">Smart Gold</h1>
               </div>
-              <h3 className="text-xl font-semibold text-gray-900">Quick Processing</h3>
-              <p className="mt-2 text-gray-600">Get your loan approved within 15 minutes</p>
             </div>
-            <div className="text-center">
-              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-yellow-100">
-                <Shield className="h-8 w-8 text-yellow-600" />
-              </div>
-              <h3 className="text-xl font-semibold text-gray-900">100% Secure</h3>
-              <p className="mt-2 text-gray-600">Your gold is safely stored in our vault</p>
-            </div>
-            <div className="text-center">
-              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-yellow-100">
-                <TrendingUp className="h-8 w-8 text-yellow-600" />
-              </div>
-              <h3 className="text-xl font-semibold text-gray-900">Best Rates</h3>
-              <p className="mt-2 text-gray-600">Competitive interest rates starting at 1.2%</p>
-            </div>
-          </div>
-        </div>
-      </section>
 
-      {/* Current Gold Rates */}
-      <section className="px-6 py-16">
-        <div className="mx-auto max-w-6xl">
-          <div className="mb-8 text-center">
-            <h2 className="text-3xl font-bold text-gray-900">Current Gold Advance Rates</h2>
-            <p className="mt-2 text-gray-600">Updated daily based on international gold prices</p>
-            <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-green-100 px-4 py-2 text-sm font-semibold text-green-800">
-              <span className="h-2 w-2 animate-pulse rounded-full bg-green-500"></span>
-              Live Rates - Last updated: Today, {new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
-            </div>
-          </div>
-
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-            {goldRates.map((rate) => (
-              <div
-                key={rate.karatage}
-                className="group rounded-2xl border-2 border-gray-200 bg-white p-6 shadow-sm transition-all hover:border-yellow-400 hover:shadow-xl"
+            <div className="flex items-center gap-3">
+              <Link
+                to="/login"
+                className="rounded-full border border-slate-300 bg-white px-5 py-2 text-sm font-semibold text-slate-900 transition hover:bg-slate-50"
               >
-                <div className="mb-4 flex items-center justify-between">
-                  <h3 className="text-2xl font-bold text-gray-900">{rate.karatage}</h3>
-                  <span className="rounded-full bg-yellow-100 px-3 py-1 text-xs font-semibold text-yellow-800">
-                    {rate.purity}
-                  </span>
-                </div>
-                <div className="space-y-3">
-                  <div>
-                    <p className="text-sm text-gray-500">Advance per gram</p>
-                    <p className="text-xl font-bold text-yellow-600">{rate.advancePerGram}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Monthly interest</p>
-                    <p className="text-lg font-semibold text-gray-900">{rate.interestRate}</p>
-                  </div>
-                </div>
-                <button className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-gray-50 px-4 py-2 text-sm font-semibold text-gray-900 transition-colors group-hover:bg-yellow-50 group-hover:text-yellow-900">
-                  Apply Now
-                  <ArrowRight className="h-4 w-4" />
-                </button>
+                Login
+              </Link>
+              <Link
+                to="/register"
+                className="rounded-full bg-yellow-500 px-5 py-2 text-sm font-semibold text-slate-950 transition hover:bg-yellow-400"
+              >
+                Register
+              </Link>
+            </div>
+          </div>
+        </nav>
+
+        <main>
+          <section className="px-6 py-18 text-center sm:py-20">
+            <div className="mx-auto max-w-4xl rounded-[2.25rem] border border-slate-200 bg-white/85 backdrop-blur-md px-8 py-12 shadow-2xl shadow-black/10 sm:px-12 sm:py-14">
+              <div className="mx-auto mb-5 inline-flex items-center gap-2 rounded-full border border-yellow-300/60 bg-yellow-100 px-4 py-2 text-sm font-semibold text-yellow-900">
+                <Sparkles className="h-4 w-4" />
+                Smart Gold Pawning Management System
               </div>
-            ))}
-          </div>
-
-          <div className="mt-8 rounded-2xl bg-yellow-50 p-6 text-center">
-            <p className="text-sm text-gray-700">
-              <strong>Note:</strong> Rates are subject to gold purity verification and may vary based on market conditions. 
-              No hidden charges. Processing fee: LKR 500 (one-time)
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* Interest Rate Details */}
-      <section className="border-t border-gray-200 bg-white px-6 py-16">
-        <div className="mx-auto max-w-4xl text-center">
-          <h2 className="text-3xl font-bold text-gray-900">Transparent Interest Rates</h2>
-          <p className="mt-4 text-lg text-gray-600">
-            Our monthly interest rates are among the most competitive in Sri Lanka
-          </p>
-          <div className="mt-10 grid gap-6 md:grid-cols-3">
-            <div className="rounded-xl bg-gray-50 p-6">
-              <p className="text-4xl font-bold text-yellow-600">1.2%</p>
-              <p className="mt-2 text-sm font-semibold text-gray-900">24K & 22K Gold</p>
-              <p className="mt-1 text-xs text-gray-600">Per month</p>
-            </div>
-            <div className="rounded-xl bg-gray-50 p-6">
-              <p className="text-4xl font-bold text-yellow-600">1.3%</p>
-              <p className="mt-2 text-sm font-semibold text-gray-900">18K Gold</p>
-              <p className="mt-1 text-xs text-gray-600">Per month</p>
-            </div>
-            <div className="rounded-xl bg-gray-50 p-6">
-              <p className="text-4xl font-bold text-yellow-600">1.4%</p>
-              <p className="mt-2 text-sm font-semibold text-gray-900">14K Gold</p>
-              <p className="mt-1 text-xs text-gray-600">Per month</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="border-t border-gray-200 bg-gray-900 px-6 py-12 text-white">
-        <div className="mx-auto max-w-7xl">
-          <div className="grid gap-8 md:grid-cols-4">
-            <div>
-              <div className="flex items-center gap-2">
-                <img
-                  src="/BOC%20logo.jpg"
-                  alt="BOC logo"
-                  className="h-8 w-8 rounded-lg object-cover"
-                />
-                <div className="text-lg font-bold">
-                  <span className="text-white">Smart</span>
-                  <span className="text-yellow-400"> Gold</span>
-                </div>
-              </div>
-              <p className="mt-4 text-sm text-gray-400">
-                Your trusted partner for gold loans since 1995
+              <h2 className="text-4xl font-bold tracking-tight text-slate-950 sm:text-5xl lg:text-6xl">
+                Welcome to Smart Gold
+              </h2>
+              <p className="mx-auto mt-5 max-w-3xl text-lg leading-8 text-slate-600">
+                Access a refined digital experience for gold valuation, customer service, and branch operations.
+                The annual interest rate is shown once and applies to all karatages.
               </p>
+              <div className="mt-8 flex flex-wrap justify-center gap-4">
+                <Link
+                  to="/register"
+                  className="inline-flex items-center gap-2 rounded-full bg-yellow-500 px-6 py-3 text-sm font-semibold text-slate-950 transition hover:bg-yellow-400"
+                >
+                  Get Started
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+                <Link
+                  to="/login"
+                  className="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-6 py-3 text-sm font-semibold text-slate-900 transition hover:bg-slate-50"
+                >
+                  Sign In
+                </Link>
+              </div>
             </div>
+          </section>
+
+          <section className="border-t border-slate-200/70 px-6 py-14">
+            <div className="mx-auto max-w-7xl">
+              <div className="grid gap-6 md:grid-cols-3">
+                {highlights.map((item) => {
+                  const Icon = item.icon
+                  return (
+                    <div key={item.title} className="rounded-[1.75rem] border border-slate-200 bg-white/85 backdrop-blur-md p-6 shadow-xl shadow-black/5">
+                      <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-yellow-100 text-yellow-700">
+                        <Icon className="h-7 w-7" />
+                      </div>
+                      <h3 className="text-xl font-semibold text-slate-950">{item.title}</h3>
+                      <p className="mt-3 text-sm leading-6 text-slate-600">{item.text}</p>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </section>
+
+          <section className="px-6 py-16">
+            <div className="mx-auto max-w-7xl rounded-[2rem] border border-slate-200 bg-white/85 backdrop-blur-md p-8 shadow-2xl shadow-black/10">
+              <div className="mb-8 text-center">
+                <h3 className="text-3xl font-bold text-slate-950">Gold valuation by karatage</h3>
+                <p className="mt-2 text-slate-600">Clear tiers for 24K, 22K, 20K, and 18K gold</p>
+              </div>
+
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+                {goldRates.map((rate) => (
+                  <div
+                    key={rate.karatage}
+                    className="rounded-[1.75rem] border border-slate-200 bg-slate-50 p-6 shadow-lg shadow-black/5 transition hover:-translate-y-1 hover:shadow-xl"
+                  >
+                    <div className="mb-4 flex items-center justify-between">
+                      <h4 className="text-2xl font-bold text-slate-950">{rate.karatage}</h4>
+                      <span className="rounded-full bg-yellow-100 px-3 py-1 text-xs font-semibold text-yellow-900">
+                        {rate.purity}
+                      </span>
+                    </div>
+                    <div className="space-y-3">
+                      <div>
+                        <p className="text-sm text-slate-500">Advance per gram</p>
+                        <p className="text-xl font-bold text-yellow-700">{rate.advancePerGram}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-8 rounded-2xl border border-slate-200 bg-white/85 backdrop-blur-md px-6 py-5 text-center shadow-sm">
+                <div className="flex flex-col items-center gap-2 sm:flex-row sm:justify-center">
+                  <div className="flex items-center gap-2 text-slate-950">
+                    <Landmark className="h-5 w-5 text-yellow-600" />
+                    <span className="text-lg font-semibold">Current annual interest rate: 12% p.a.</span>
+                  </div>
+                  <span className="hidden h-1 w-1 rounded-full bg-slate-300 sm:inline-block" />
+                  <span className="text-sm text-slate-600">Adjustable by administrators in System Settings</span>
+                </div>
+              </div>
+            </div>
+          </section>
+        </main>
+
+        <footer className="border-t border-slate-200 bg-white/85 px-6 py-8 text-slate-900 backdrop-blur-md shadow-[0_-1px_0_rgba(15,23,42,0.05)]">
+          <div className="mx-auto flex max-w-7xl flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
-              <h4 className="font-semibold">Quick Links</h4>
-              <ul className="mt-4 space-y-2 text-sm text-gray-400">
-                <li><a href="#" className="hover:text-yellow-400">About Us</a></li>
-                <li><a href="#" className="hover:text-yellow-400">Branches</a></li>
-                <li><a href="#" className="hover:text-yellow-400">Contact</a></li>
-              </ul>
+              <p className="text-lg font-semibold">Smart Gold Pawning Management System</p>
+              <p className="text-sm text-slate-600">Clear rates, simple access, and a professional customer experience.</p>
             </div>
-            <div>
-              <h4 className="font-semibold">Services</h4>
-              <ul className="mt-4 space-y-2 text-sm text-gray-400">
-                <li><a href="#" className="hover:text-yellow-400">Gold Loans</a></li>
-                <li><a href="#" className="hover:text-yellow-400">Renewals</a></li>
-                <li><a href="#" className="hover:text-yellow-400">Gold Storage</a></li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-semibold">Contact</h4>
-              <ul className="mt-4 space-y-2 text-sm text-gray-400">
-                <li>+94 11 234 5678</li>
-                <li>info@smartgold.lk</li>
-                <li>Colombo, Sri Lanka</li>
-              </ul>
-            </div>
+            <p className="text-sm text-slate-500">&copy; 2026 Smart Gold. All rights reserved.</p>
           </div>
-          <div className="mt-8 border-t border-gray-800 pt-8 text-center text-sm text-gray-400">
-            <p>&copy; 2026 Smart Gold. All rights reserved.</p>
-          </div>
-        </div>
-      </footer>
+        </footer>
+      </div>
     </div>
   )
 }
-
-
