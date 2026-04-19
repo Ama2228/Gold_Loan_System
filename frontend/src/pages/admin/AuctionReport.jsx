@@ -26,6 +26,7 @@ export default function AuctionReport() {
   // Report state
   const [summary, setSummary] = useState(null)
   const [reportData, setReportData] = useState(null)
+  const staffBranch = isStaff ? branches.find(b => b.branch_id === userBranchId) : null
 
   // Fetch branches on mount
   useEffect(() => {
@@ -280,25 +281,31 @@ export default function AuctionReport() {
 
         <div className="p-6">
           <div className="grid grid-cols-1 sm:grid-cols-6 gap-4">
-            {/* Branch Dropdown */}
+            {/* Branch */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
                 Branch
               </label>
-              <select
-                name="branch"
-                value={filters.branch}
-                onChange={handleFilterChange}
-                disabled={reportLoading}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 disabled:bg-gray-50 disabled:cursor-not-allowed"
-              >
-                {!isStaff && <option value="ALL">All Branches</option>}
-                {branches.map(b => (
-                  <option key={b.branch_id} value={b.branch_code}>
-                    {b.branch_code} - {b.branch_name}
-                  </option>
-                ))}
-              </select>
+              {isStaff ? (
+                <div className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-gray-50 text-gray-700">
+                  {staffBranch ? `${staffBranch.branch_code} - ${staffBranch.branch_name}` : 'Assigned branch'}
+                </div>
+              ) : (
+                <select
+                  name="branch"
+                  value={filters.branch}
+                  onChange={handleFilterChange}
+                  disabled={reportLoading}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 disabled:bg-gray-50 disabled:cursor-not-allowed"
+                >
+                  <option value="ALL">All Branches</option>
+                  {branches.map(b => (
+                    <option key={b.branch_id} value={b.branch_code}>
+                      {b.branch_code} - {b.branch_name}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
 
             {/* Status Filter */}

@@ -158,15 +158,6 @@ export default function Login() {
           </Link>
         </div>
 
-        {/* Info Box */}
-        <div className="mt-8 rounded-lg bg-yellow-500/10 p-4 border border-yellow-500/20 backdrop-blur">
-          <p className="text-sm text-yellow-50">
-            <strong>Test Credentials:</strong><br />
-            Staff - NIC: 199978901234, Password: Staff@123<br />
-            Manager - NIC: 199911223344, Password: Manager@123<br />
-            Admin - NIC: 200263000105, Password: Dewama.952
-          </p>
-        </div>
       </div>
     </div>
   )

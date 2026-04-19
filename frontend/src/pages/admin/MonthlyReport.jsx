@@ -26,6 +26,7 @@ export default function MonthlyReport() {
   const [reportData, setReportData] = useState(null)
   const [summary, setSummary] = useState(null)
   const [branchBreakdown, setBranchBreakdown] = useState(null)
+  const staffBranch = isStaff ? branches.find(b => b.branch_id === userBranchId) : null
 
   // Fetch branches on mount
   useEffect(() => {
@@ -145,6 +146,7 @@ export default function MonthlyReport() {
 
   const handleExportPdf = () => {
     if (!summary) return
+    const totals = summary.transactionCounts || {}
     const branchLabel = filters.branch === 'ALL' ? 'All Branches' : branches.find(b => b.branch_code === filters.branch)?.branch_name || filters.branch
     exportToPdf({
       title: 'Monthly Report',
@@ -155,7 +157,11 @@ export default function MonthlyReport() {
         { label: 'Total Payments', value: formatCurrency(summary.totalPayments) },
         { label: 'Total Interest', value: formatCurrency(summary.totalInterest) },
         { label: 'Redeemed Tickets', value: summary.redeemedCount || 0 },
-        { label: 'Overdue Tickets', value: summary.overdueCount || 0 }
+        { label: 'Overdue Tickets', value: summary.overdueCount || 0 },
+        { label: 'Pawnings', value: totals.pawnings || 0 },
+        { label: 'Redeems', value: totals.redeems || 0 },
+        { label: 'Renewals', value: totals.renewals || 0 },
+        { label: 'Part Payments', value: totals.partPayments || 0 }
       ],
       tableHeaders: ['Receipt No', 'Customer Name', 'Issue Date', 'Due Date', 'Loan Amount', 'Total Paid', 'Status', 'Branch'],
       tableData: (reportData || []).map(r => [
@@ -174,6 +180,7 @@ export default function MonthlyReport() {
 
   const handleExportExcel = () => {
     if (!summary) return
+    const totals = summary.transactionCounts || {}
     const branchLabel = filters.branch === 'ALL' ? 'All Branches' : branches.find(b => b.branch_code === filters.branch)?.branch_name || filters.branch
     exportToExcel({
       title: 'Monthly Report',
@@ -184,7 +191,11 @@ export default function MonthlyReport() {
         { label: 'Total Payments', value: formatCurrency(summary.totalPayments) },
         { label: 'Total Interest', value: formatCurrency(summary.totalInterest) },
         { label: 'Redeemed Tickets', value: summary.redeemedCount || 0 },
-        { label: 'Overdue Tickets', value: summary.overdueCount || 0 }
+        { label: 'Overdue Tickets', value: summary.overdueCount || 0 },
+        { label: 'Pawnings', value: totals.pawnings || 0 },
+        { label: 'Redeems', value: totals.redeems || 0 },
+        { label: 'Renewals', value: totals.renewals || 0 },
+        { label: 'Part Payments', value: totals.partPayments || 0 }
       ],
       tableHeaders: ['Receipt No', 'Customer Name', 'Issue Date', 'Due Date', 'Loan Amount', 'Total Paid', 'Status', 'Branch'],
       tableData: (reportData || []).map(r => [
@@ -259,25 +270,31 @@ export default function MonthlyReport() {
 
         <div className="p-6">
           <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
-            {/* Branch Dropdown */}
+            {/* Branch */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
                 Branch
               </label>
-              <select
-                name="branch"
-                value={filters.branch}
-                onChange={handleFilterChange}
-                disabled={reportLoading}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 disabled:bg-gray-50 disabled:cursor-not-allowed"
-              >
-                {!isStaff && <option value="ALL">All Branches</option>}
-                {branches.map(b => (
-                  <option key={b.branch_id} value={b.branch_code}>
-                    {b.branch_code} - {b.branch_name}
-                  </option>
-                ))}
-              </select>
+              {isStaff ? (
+                <div className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-gray-50 text-gray-700">
+                  {staffBranch ? `${staffBranch.branch_code} - ${staffBranch.branch_name}` : 'Assigned branch'}
+                </div>
+              ) : (
+                <select
+                  name="branch"
+                  value={filters.branch}
+                  onChange={handleFilterChange}
+                  disabled={reportLoading}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 disabled:bg-gray-50 disabled:cursor-not-allowed"
+                >
+                  <option value="ALL">All Branches</option>
+                  {branches.map(b => (
+                    <option key={b.branch_id} value={b.branch_code}>
+                      {b.branch_code} - {b.branch_name}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
 
             {/* Month Picker */}
@@ -549,6 +566,30 @@ export default function MonthlyReport() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+
+          {summary?.transactionCounts && reportData.length > 0 && (
+            <div className="border-t border-gray-200 bg-gray-50 px-6 py-4">
+              <h3 className="text-sm font-bold text-gray-900 mb-2">End of Report Totals</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                <div className="rounded bg-white border border-gray-200 px-3 py-2">
+                  <p className="text-gray-600">Pawnings</p>
+                  <p className="font-bold text-gray-900">{summary.transactionCounts.pawnings || 0}</p>
+                </div>
+                <div className="rounded bg-white border border-gray-200 px-3 py-2">
+                  <p className="text-gray-600">Redeems</p>
+                  <p className="font-bold text-gray-900">{summary.transactionCounts.redeems || 0}</p>
+                </div>
+                <div className="rounded bg-white border border-gray-200 px-3 py-2">
+                  <p className="text-gray-600">Renewals</p>
+                  <p className="font-bold text-gray-900">{summary.transactionCounts.renewals || 0}</p>
+                </div>
+                <div className="rounded bg-white border border-gray-200 px-3 py-2">
+                  <p className="text-gray-600">Part Payments</p>
+                  <p className="font-bold text-gray-900">{summary.transactionCounts.partPayments || 0}</p>
+                </div>
+              </div>
             </div>
           )}
         </div>

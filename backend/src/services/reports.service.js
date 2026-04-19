@@ -39,6 +39,64 @@ const getDailyReport = async (date, branch = 'ALL') => {
     const summaryParams = [date, date, ...branchParams];
     const [[summary]] = await pool.query(summaryQuery, summaryParams);
 
+    const dailyCountsQuery = `
+      SELECT
+        (
+          SELECT COUNT(*)
+          FROM pawn_tickets t2
+          JOIN branches b2 ON t2.branch_id = b2.branch_id
+          WHERE DATE(t2.issue_date) = ? AND t2.status != 'REVERSED'
+          ${branchWhereClause.replace(/\bb\./g, 'b2.')}
+        ) AS pawnings,
+        (
+          SELECT COUNT(*)
+          FROM redeems r2
+          JOIN pawn_tickets t3 ON r2.ticket_id = t3.ticket_id
+          JOIN branches b3 ON t3.branch_id = b3.branch_id
+          WHERE DATE(r2.redeemed_date) = ?
+            AND DATE(t3.issue_date) = ?
+            AND t3.status != 'REVERSED'
+          ${branchWhereClause.replace(/\bb\./g, 'b3.')}
+        ) AS redeems,
+        (
+          SELECT COUNT(*)
+          FROM renewals rw2
+          JOIN pawn_tickets t4 ON rw2.ticket_id = t4.ticket_id
+          JOIN branches b4 ON t4.branch_id = b4.branch_id
+          WHERE DATE(rw2.renewal_date) = ?
+            AND DATE(t4.issue_date) = ?
+            AND t4.status != 'REVERSED'
+          ${branchWhereClause.replace(/\bb\./g, 'b4.')}
+        ) AS renewals,
+        (
+          SELECT COUNT(*)
+          FROM payments p2
+          JOIN pawn_tickets t5 ON p2.ticket_id = t5.ticket_id
+          JOIN branches b5 ON t5.branch_id = b5.branch_id
+          WHERE DATE(p2.payment_date) = ?
+            AND p2.payment_type = 'PART'
+            AND DATE(t5.issue_date) = ?
+            AND t5.status != 'REVERSED'
+          ${branchWhereClause.replace(/\bb\./g, 'b5.')}
+        ) AS partPayments
+    `;
+
+    const dailyCountsParams = [
+      date,
+      ...branchParams,
+      date,
+      date,
+      ...branchParams,
+      date,
+      date,
+      ...branchParams,
+      date,
+      date,
+      ...branchParams
+    ];
+
+    const [[dailyCounts]] = await pool.query(dailyCountsQuery, dailyCountsParams);
+
     // Get transaction details
     const dataQuery = `
       SELECT 
@@ -70,7 +128,13 @@ const getDailyReport = async (date, branch = 'ALL') => {
           totalTickets: Number(summary.totalTickets),
           totalLoanIssued: Number(summary.totalLoanIssued),
           totalPayments: Number(summary.totalPayments),
-          totalInterest: Number(summary.totalInterest)
+          totalInterest: Number(summary.totalInterest),
+          transactionCounts: {
+            pawnings: Number(dailyCounts?.pawnings || 0),
+            redeems: Number(dailyCounts?.redeems || 0),
+            renewals: Number(dailyCounts?.renewals || 0),
+            partPayments: Number(dailyCounts?.partPayments || 0)
+          }
         },
         data: data.map(row => ({
           ...row,
@@ -127,6 +191,64 @@ const getMonthlyReport = async (month, branch = 'ALL') => {
     const summaryParams = [month, month, ...branchParams];
     const [[summary]] = await pool.query(summaryQuery, summaryParams);
 
+    const monthlyCountsQuery = `
+      SELECT
+        (
+          SELECT COUNT(*)
+          FROM pawn_tickets t2
+          JOIN branches br2 ON t2.branch_id = br2.branch_id
+          WHERE DATE_FORMAT(t2.issue_date, '%Y-%m') = ? AND t2.status != 'REVERSED'
+          ${branchWhereClause.replace(/\bbr\./g, 'br2.')}
+        ) AS pawnings,
+        (
+          SELECT COUNT(*)
+          FROM redeems r2
+          JOIN pawn_tickets t3 ON r2.ticket_id = t3.ticket_id
+          JOIN branches br3 ON t3.branch_id = br3.branch_id
+          WHERE DATE_FORMAT(r2.redeemed_date, '%Y-%m') = ?
+            AND DATE_FORMAT(t3.issue_date, '%Y-%m') = ?
+            AND t3.status != 'REVERSED'
+          ${branchWhereClause.replace(/\bbr\./g, 'br3.')}
+        ) AS redeems,
+        (
+          SELECT COUNT(*)
+          FROM renewals rw2
+          JOIN pawn_tickets t4 ON rw2.ticket_id = t4.ticket_id
+          JOIN branches br4 ON t4.branch_id = br4.branch_id
+          WHERE DATE_FORMAT(rw2.renewal_date, '%Y-%m') = ?
+            AND DATE_FORMAT(t4.issue_date, '%Y-%m') = ?
+            AND t4.status != 'REVERSED'
+          ${branchWhereClause.replace(/\bbr\./g, 'br4.')}
+        ) AS renewals,
+        (
+          SELECT COUNT(*)
+          FROM payments p2
+          JOIN pawn_tickets t5 ON p2.ticket_id = t5.ticket_id
+          JOIN branches br5 ON t5.branch_id = br5.branch_id
+          WHERE DATE_FORMAT(p2.payment_date, '%Y-%m') = ?
+            AND p2.payment_type = 'PART'
+            AND DATE_FORMAT(t5.issue_date, '%Y-%m') = ?
+            AND t5.status != 'REVERSED'
+          ${branchWhereClause.replace(/\bbr\./g, 'br5.')}
+        ) AS partPayments
+    `;
+
+    const monthlyCountsParams = [
+      month,
+      ...branchParams,
+      month,
+      month,
+      ...branchParams,
+      month,
+      month,
+      ...branchParams,
+      month,
+      month,
+      ...branchParams
+    ];
+
+    const [[monthlyCounts]] = await pool.query(monthlyCountsQuery, monthlyCountsParams);
+
     // Get branch breakdown
     const branchBreakdownQuery = `
       SELECT 
@@ -182,7 +304,13 @@ const getMonthlyReport = async (month, branch = 'ALL') => {
           totalPayments: Number(summary.totalPayments),
           totalInterest: Number(summary.totalInterest),
           redeemedCount: Number(summary.redeemedCount),
-          overdueCount: Number(summary.overdueCount)
+          overdueCount: Number(summary.overdueCount),
+          transactionCounts: {
+            pawnings: Number(monthlyCounts?.pawnings || 0),
+            redeems: Number(monthlyCounts?.redeems || 0),
+            renewals: Number(monthlyCounts?.renewals || 0),
+            partPayments: Number(monthlyCounts?.partPayments || 0)
+          }
         },
         branchBreakdown: branchBreakdown.map(row => ({
           branchCode: row.branchCode,
