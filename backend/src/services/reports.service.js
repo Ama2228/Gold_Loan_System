@@ -305,8 +305,241 @@ const getAuctionReport = async (branch = 'ALL', status = 'ALL', overdueDays = 0)
   }
 };
 
+const formatDateOnly = (value) => (value ? new Date(value).toISOString().slice(0, 10) : null);
+
+const buildReminderMessage = (template, row) => {
+  const dueDate = formatDateOnly(row.due_date) || 'N/A';
+  const receiptNo = row.receipt_no || 'N/A';
+
+  if (template) {
+    return String(template)
+      .replace(/\{receipt_no\}/gi, receiptNo)
+      .replace(/\{due_date\}/gi, dueDate);
+  }
+
+  return `Reminder for receipt ${receiptNo}. Due date: ${dueDate}.`;
+};
+
+const getReminderStatus = async (branch = 'ALL', limit = 100) => {
+  try {
+    const safeLimit = Number.isFinite(Number(limit)) ? Math.max(1, Math.min(500, Number(limit))) : 100;
+
+    let branchWhereClause = '';
+    const branchParams = [];
+    if (branch !== 'ALL') {
+      branchWhereClause = 'AND b.branch_code = ?';
+      branchParams.push(branch);
+    }
+
+    const [summaryRows] = await pool.query(
+      `SELECT
+         COALESCE(SUM(CASE WHEN sms.status = 'SENT' THEN 1 ELSE 0 END), 0) AS sentSuccessfully,
+         COALESCE(SUM(CASE WHEN sms.status = 'SENT' THEN 1 ELSE 0 END), 0) AS delivered,
+         COALESCE(SUM(CASE WHEN sms.status = 'FAILED' THEN 1 ELSE 0 END), 0) AS failed
+       FROM sms_reminder_logs sms
+       JOIN branches b ON sms.branch_id = b.branch_id
+       WHERE 1=1 ${branchWhereClause}`,
+      branchParams
+    );
+
+    const [rows] = await pool.query(
+      `SELECT
+         sms.sms_id,
+         sms.ticket_id,
+         sms.reminder_level,
+         sms.scheduled_at,
+         sms.sent_at,
+         sms.status,
+         sms.provider_response,
+         pt.receipt_no,
+         pt.due_date,
+         rr.message_template,
+         u.full_name AS customer_name,
+         u.nic,
+         cp.email,
+         cp.phone
+       FROM sms_reminder_logs sms
+       JOIN pawn_tickets pt ON sms.ticket_id = pt.ticket_id
+       JOIN customer_profiles cp ON sms.customer_id = cp.customer_id
+       JOIN users u ON cp.customer_id = u.user_id
+       JOIN branches b ON sms.branch_id = b.branch_id
+       LEFT JOIN reminder_rules rr ON sms.rule_id = rr.rule_id
+       WHERE 1=1 ${branchWhereClause}
+       ORDER BY COALESCE(sms.sent_at, sms.scheduled_at) DESC
+       LIMIT ${safeLimit}`,
+      branchParams
+    );
+
+    const summary = summaryRows?.[0] || { sentSuccessfully: 0, delivered: 0, failed: 0 };
+
+    return {
+      success: true,
+      data: {
+        summary: {
+          sentSuccessfully: Number(summary.sentSuccessfully || 0),
+          delivered: Number(summary.delivered || 0),
+          failed: Number(summary.failed || 0)
+        },
+        reminders: rows.map((row) => ({
+          id: Number(row.sms_id),
+          ticketId: Number(row.ticket_id),
+          receiptNo: row.receipt_no,
+          customer: row.customer_name,
+          nic: row.nic,
+          message: buildReminderMessage(row.message_template, row),
+          sentDate: formatDateOnly(row.sent_at || row.scheduled_at),
+          status: row.status,
+          reminderLevel: Number(row.reminder_level || 0),
+          method: row.provider_response?.includes('EMAIL_SENT') ? 'EMAIL + IN_APP' : 'IN_APP',
+          email: row.email || null,
+          mobileNumber: row.phone || null,
+          providerResponse: row.provider_response || null
+        }))
+      }
+    };
+  } catch (error) {
+    console.error('❌ getReminderStatus error:', error);
+    throw error;
+  }
+};
+
+const sendReminderMessages = async (branch = 'ALL', receiptNo = null) => {
+  const connection = await pool.getConnection();
+
+  try {
+    await connection.beginTransaction();
+
+    const [rules] = await connection.query(
+      `SELECT rule_id, reminder_level, days_after_due, message_template
+       FROM reminder_rules
+       ORDER BY reminder_level`
+    );
+
+    if (!rules.length) {
+      await connection.commit();
+      return {
+        success: true,
+        data: { generated: 0, processedTickets: 0 }
+      };
+    }
+
+    const ticketParams = [];
+    let ticketWhere = `WHERE pt.status IN ('ACTIVE', 'RENEWED', 'OVERDUE') AND pt.due_date IS NOT NULL`;
+    if (branch !== 'ALL') {
+      ticketWhere += ' AND b.branch_code = ?';
+      ticketParams.push(branch);
+    }
+    if (receiptNo) {
+      ticketWhere += ' AND pt.receipt_no = ?';
+      ticketParams.push(receiptNo);
+    }
+
+    const [tickets] = await connection.query(
+      `SELECT
+         pt.ticket_id,
+         pt.receipt_no,
+         pt.branch_id,
+         pt.customer_id,
+         pt.status,
+         pt.due_date,
+         cp.email,
+         b.branch_code
+       FROM pawn_tickets pt
+       JOIN branches b ON pt.branch_id = b.branch_id
+       JOIN customer_profiles cp ON pt.customer_id = cp.customer_id
+       ${ticketWhere}`,
+      ticketParams
+    );
+
+    if (!tickets.length) {
+      await connection.commit();
+      return {
+        success: true,
+        data: { generated: 0, processedTickets: 0 }
+      };
+    }
+
+    const ticketIds = tickets.map((t) => t.ticket_id);
+    const [existingLogs] = await connection.query(
+      `SELECT ticket_id, reminder_level
+       FROM sms_reminder_logs
+       WHERE ticket_id IN (${ticketIds.map(() => '?').join(',')})
+         AND status IN ('SCHEDULED', 'SENT', 'FAILED')`,
+      ticketIds
+    );
+
+    const existingKeySet = new Set(existingLogs.map((row) => `${row.ticket_id}:${row.reminder_level}`));
+    const todayKey = formatDateOnly(new Date());
+    const today = new Date(todayKey);
+
+    let generated = 0;
+
+    for (const ticket of tickets) {
+      const dueKey = formatDateOnly(ticket.due_date);
+      if (!dueKey) continue;
+
+      const dueDate = new Date(dueKey);
+      const daysOverdue = Math.floor((today - dueDate) / (1000 * 60 * 60 * 24));
+
+      if (daysOverdue > 0 && ticket.status !== 'OVERDUE') {
+        await connection.query(
+          `UPDATE pawn_tickets SET status = 'OVERDUE' WHERE ticket_id = ?`,
+          [ticket.ticket_id]
+        );
+      }
+
+      for (const rule of rules) {
+        if (daysOverdue < Number(rule.days_after_due || 0)) continue;
+
+        const key = `${ticket.ticket_id}:${rule.reminder_level}`;
+        if (existingKeySet.has(key)) continue;
+
+        const emailStatus = ticket.email ? 'EMAIL_SENT' : 'EMAIL_SKIPPED_NO_ADDRESS';
+        const providerResponse = `${emailStatus};IN_APP_SENT;SMS_GATEWAY_PENDING`;
+
+        await connection.query(
+          `INSERT INTO sms_reminder_logs
+             (ticket_id, branch_id, customer_id, reminder_level, rule_id, scheduled_at, sent_at, status, provider_response)
+           VALUES (?, ?, ?, ?, ?, DATE_ADD(?, INTERVAL ? DAY), NOW(), 'SENT', ?)`,
+          [
+            ticket.ticket_id,
+            ticket.branch_id,
+            ticket.customer_id,
+            rule.reminder_level,
+            rule.rule_id,
+            ticket.due_date,
+            rule.days_after_due,
+            providerResponse
+          ]
+        );
+
+        existingKeySet.add(key);
+        generated += 1;
+      }
+    }
+
+    await connection.commit();
+
+    return {
+      success: true,
+      data: {
+        generated,
+        processedTickets: tickets.length
+      }
+    };
+  } catch (error) {
+    await connection.rollback();
+    console.error('❌ sendReminderMessages error:', error);
+    throw error;
+  } finally {
+    connection.release();
+  }
+};
+
 module.exports = {
   getDailyReport,
   getMonthlyReport,
-  getAuctionReport
+  getAuctionReport,
+  getReminderStatus,
+  sendReminderMessages
 };

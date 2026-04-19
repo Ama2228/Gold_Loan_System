@@ -4,7 +4,9 @@ const { authorize: requireRole } = require('../../middleware/auth');
 const {
   getDailyReport,
   getMonthlyReport,
-  getAuctionReport
+  getAuctionReport,
+  getReminderStatus,
+  sendRemindersNow
 } = require('../controllers/reports.controller');
 
 const router = express.Router();
@@ -27,5 +29,15 @@ router.get('/monthly', getMonthlyReport);
 // @desc    Get auction candidates report
 // @access  Private/Admin
 router.get('/auction', getAuctionReport);
+
+// @route   GET /reminders/status
+// @desc    Get reminder dispatch status logs
+// @access  Private/Staff/Manager/Admin
+router.get('/reminders/status', getReminderStatus);
+
+// @route   POST /reminders/send
+// @desc    Send due reminders now (email + in-app fallback)
+// @access  Private/Staff/Manager/Admin
+router.post('/reminders/send', sendRemindersNow);
 
 module.exports = router;

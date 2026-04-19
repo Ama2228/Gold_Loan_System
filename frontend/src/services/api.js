@@ -226,6 +226,14 @@ class ApiService {
     return this.get('/admin/dashboard');
   }
 
+  async getAuctionReport({ status = 'ALL', overdueDays = 0 } = {}) {
+    const params = new URLSearchParams();
+    if (status) params.set('status', status);
+    if (overdueDays) params.set('overdueDays', String(overdueDays));
+    const qs = params.toString();
+    return this.get(`/reports/auction${qs ? `?${qs}` : ''}`);
+  }
+
   async searchStaffPawnTickets(searchTerm, reversibleOnly = false) {
     if (!searchTerm || String(searchTerm).trim().length < 2) {
       return { data: { total: 0, tickets: [] } };
@@ -272,6 +280,18 @@ class ApiService {
       note: note || null
     });
     return res;
+  }
+
+  // ========== REMINDERS (Staff) ==========
+
+  async getReminderStatus(limit = 100) {
+    return this.get(`/reports/reminders/status?limit=${encodeURIComponent(limit)}`);
+  }
+
+  async sendReminderMessages(receiptNo = null) {
+    return this.post('/reports/reminders/send', {
+      receiptNo: receiptNo || null
+    });
   }
 
   // ========== CUSTOMER ENDPOINTS (use /api/customer) ==========

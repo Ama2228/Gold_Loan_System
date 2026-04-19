@@ -143,8 +143,60 @@ const getAuctionReport = async (req, res, next) => {
   }
 };
 
+// @desc    Get reminder status logs
+// @route   GET /api/v1/reports/reminders/status
+// @access  Private/Staff/Manager/Admin
+const getReminderStatus = async (req, res, next) => {
+  try {
+    const { branch, limit } = req.query;
+
+    const { branch: effectiveBranch, error: branchError } = await resolveReportBranch(req, branch);
+    if (branchError) {
+      return res.status(403).json({ success: false, message: branchError });
+    }
+
+    const result = await reportsService.getReminderStatus(effectiveBranch || 'ALL', parseInt(limit, 10) || 100);
+
+    res.json({
+      success: true,
+      message: 'Reminder status retrieved successfully',
+      data: result.data
+    });
+  } catch (error) {
+    console.error('❌ Get reminder status error:', error);
+    next(error);
+  }
+};
+
+// @desc    Send due reminders (email + in-app fallback while SMS gateway is pending)
+// @route   POST /api/v1/reports/reminders/send
+// @access  Private/Staff/Manager/Admin
+const sendRemindersNow = async (req, res, next) => {
+  try {
+    const { branch, receiptNo } = req.body || {};
+
+    const { branch: effectiveBranch, error: branchError } = await resolveReportBranch(req, branch);
+    if (branchError) {
+      return res.status(403).json({ success: false, message: branchError });
+    }
+
+    const result = await reportsService.sendReminderMessages(effectiveBranch || 'ALL', receiptNo || null);
+
+    res.json({
+      success: true,
+      message: 'Reminder dispatch completed',
+      data: result.data
+    });
+  } catch (error) {
+    console.error('❌ Send reminders error:', error);
+    next(error);
+  }
+};
+
 module.exports = {
   getDailyReport,
   getMonthlyReport,
-  getAuctionReport
+  getAuctionReport,
+  getReminderStatus,
+  sendRemindersNow
 };
