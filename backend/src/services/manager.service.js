@@ -311,7 +311,7 @@ async function getDashboardStats(branchId, { from, to }) {
     GROUP BY DATE(issue_date)
     ORDER BY DATE(issue_date)
     `,
-    [branchId, monthFrom, monthTo]
+    [branchId, periodFrom, periodTo]
   );
 
   const [dailyCollections] = await pool.query(
@@ -326,7 +326,7 @@ async function getDashboardStats(branchId, { from, to }) {
     GROUP BY DATE(p.payment_date)
     ORDER BY DATE(p.payment_date)
     `,
-    [branchId, monthFrom, monthTo]
+    [branchId, periodFrom, periodTo]
   );
 
   return {

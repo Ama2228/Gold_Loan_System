@@ -154,7 +154,7 @@ export default function Register() {
                 disabled={isLookupLoading}
                 className="mt-3 w-full rounded-lg border-2 border-yellow-500 px-4 py-2 text-yellow-600 font-semibold hover:bg-yellow-50 transition-colors disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
               >
-                {isLookupLoading ? 'Searching...' : 'Find Customer'}
+                {isLookupLoading ? 'Searching...' : 'Search'}
               </button>
             </div>
 

@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo, useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Activity,
@@ -32,49 +32,105 @@ function shortDate(value) {
   return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })
 }
 
-function SparkLine({ points, colorClass = 'text-amber-500' }) {
+function toIsoDate(dateValue) {
+  const d = new Date(dateValue)
+  if (Number.isNaN(d.getTime())) return null
+  return d.toISOString().slice(0, 10)
+}
+
+function buildDailySeries(from, to, points) {
+  if (!from || !to) return []
+
+  const start = new Date(`${from}T00:00:00`)
+  const end = new Date(`${to}T00:00:00`)
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || start > end) return []
+
+  const amountByDate = new Map(
+    (points || []).map((p) => [toIsoDate(p.date), Number(p.amount || 0)])
+  )
+
+  const series = []
+  const cursor = new Date(start)
+  while (cursor <= end) {
+    const key = toIsoDate(cursor)
+    series.push({ date: key, amount: amountByDate.get(key) || 0 })
+    cursor.setDate(cursor.getDate() + 1)
+  }
+
+  return series
+}
+
+function LineChart({ points }) {
   if (!points || points.length === 0) {
     return <p className="text-xs text-slate-500">No trend data available</p>
   }
 
   const values = points.map((p) => Number(p.amount || 0))
   const max = Math.max(...values, 1)
-  const width = 540
-  const height = 120
-  const step = points.length > 1 ? width / (points.length - 1) : width
+  const width = 760
+  const height = 240
+  const pad = { top: 18, right: 18, bottom: 36, left: 18 }
+  const chartW = width - pad.left - pad.right
+  const chartH = height - pad.top - pad.bottom
+  const step = points.length > 1 ? chartW / (points.length - 1) : chartW
 
-  const d = points
+  const pathD = points
     .map((p, index) => {
-      const x = index * step
-      const y = height - (Number(p.amount || 0) / max) * (height - 12) - 6
+      const x = pad.left + index * step
+      const y = pad.top + chartH - (Number(p.amount || 0) / max) * chartH
       return `${index === 0 ? 'M' : 'L'} ${x.toFixed(2)} ${y.toFixed(2)}`
     })
     .join(' ')
 
+  const yTicks = [0, max * 0.5, max]
+  const midIndex = Math.floor((points.length - 1) / 2)
+
   return (
     <div className="space-y-2">
-      <svg viewBox={`0 0 ${width} ${height}`} className={`h-32 w-full ${colorClass}`}>
-        <path
-          d={d}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="3"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
+      <svg viewBox={`0 0 ${width} ${height}`} className="h-56 w-full">
+        {yTicks.map((tick, idx) => {
+          const y = pad.top + chartH - (tick / max) * chartH
+          return (
+            <g key={`grid-${idx}`}>
+              <line x1={pad.left} y1={y} x2={width - pad.right} y2={y} stroke="#e2e8f0" strokeWidth="1" />
+              <text x={width - pad.right} y={y - 4} textAnchor="end" fontSize="11" fill="#64748b">
+                {formatMoney(tick)}
+              </text>
+            </g>
+          )
+        })}
+
+        <path d={pathD} fill="none" stroke="#d97706" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+
+        {points.map((p, index) => {
+          const x = pad.left + index * step
+          const y = pad.top + chartH - (Number(p.amount || 0) / max) * chartH
+          return <circle key={`pt-${p.date}-${index}`} cx={x} cy={y} r="2.7" fill="#b45309" />
+        })}
+
+        <text x={pad.left} y={height - 10} fontSize="12" fill="#64748b" textAnchor="start">
+          {shortDate(points[0]?.date)}
+        </text>
+        <text x={pad.left + midIndex * step} y={height - 10} fontSize="12" fill="#64748b" textAnchor="middle">
+          {shortDate(points[midIndex]?.date)}
+        </text>
+        <text x={width - pad.right} y={height - 10} fontSize="12" fill="#64748b" textAnchor="end">
+          {shortDate(points[points.length - 1]?.date)}
+        </text>
       </svg>
-      <div className="flex items-center justify-between text-xs text-slate-500">
-        <span>{shortDate(points[0]?.date)}</span>
-        <span>{shortDate(points[points.length - 1]?.date)}</span>
-      </div>
     </div>
   )
 }
 
 export default function ManagerDashboardHome() {
   const navigate = useNavigate()
+  const today = new Date().toISOString().slice(0, 10)
+  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10)
+
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [dateRange, setDateRange] = useState({ from: monthStart, to: today })
+  const [appliedPeriod, setAppliedPeriod] = useState({ from: monthStart, to: today })
   const [stats, setStats] = useState({
     period: null,
     headlineKpis: {
@@ -109,23 +165,44 @@ export default function ManagerDashboardHome() {
     branchName: ''
   })
 
-  useEffect(() => {
-    async function load() {
-      setLoading(true)
-      setError(null)
-      try {
-        const res = await api.getManagerDashboard()
-        if (res.success && res.data) {
-          setStats(res.data)
-        }
-      } catch (err) {
-        setError(err.message || 'Failed to load dashboard')
-      } finally {
-        setLoading(false)
+  const loadDashboard = useCallback(async (from, to) => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await api.getManagerDashboard({ from, to })
+      if (res.success && res.data) {
+        setStats(res.data)
       }
+    } catch (err) {
+      setError(err.message || 'Failed to load dashboard')
+    } finally {
+      setLoading(false)
     }
-    load()
   }, [])
+
+  useEffect(() => {
+    loadDashboard(appliedPeriod.from, appliedPeriod.to)
+  }, [loadDashboard, appliedPeriod.from, appliedPeriod.to])
+
+  const handleDateChange = (e) => {
+    const { name, value } = e.target
+    setDateRange((prev) => ({ ...prev, [name]: value }))
+  }
+
+  const handleApplyPeriod = () => {
+    if (dateRange.from && dateRange.to && dateRange.from > dateRange.to) {
+      setError('From date cannot be later than To date')
+      return
+    }
+    setAppliedPeriod({ from: dateRange.from || monthStart, to: dateRange.to || today })
+  }
+
+  const handleResetPeriod = () => {
+    const resetFrom = monthStart
+    const resetTo = today
+    setDateRange({ from: resetFrom, to: resetTo })
+    setAppliedPeriod({ from: resetFrom, to: resetTo })
+  }
 
   const targetPct = useMemo(() => {
     return Math.max(0, Math.min(100, Number(stats.headlineKpis?.targetAchievementPct || 0)))
@@ -137,6 +214,14 @@ export default function ManagerDashboardHome() {
     Number(stats.collections?.redemptionAmount || 0) +
     Number(stats.collections?.otherAmount || 0)
 
+  const chartPoints = useMemo(() => {
+    return buildDailySeries(stats.period?.from, stats.period?.to, stats.timeSeries?.dailyLoans || [])
+  }, [stats.period?.from, stats.period?.to, stats.timeSeries?.dailyLoans])
+
+  const periodLoanTotal = useMemo(() => {
+    return chartPoints.reduce((sum, p) => sum + Number(p.amount || 0), 0)
+  }, [chartPoints])
+
   return (
     <div className="space-y-6">
       <div className="overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-br from-amber-50 via-white to-slate-100 p-6 shadow-sm">
@@ -144,9 +229,9 @@ export default function ManagerDashboardHome() {
           <div>
             <p className="inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-slate-700">
               <ChartNoAxesCombined className="h-3.5 w-3.5 text-amber-600" />
-              Branch Performance
+              
             </p>
-            <h1 className="mt-3 text-3xl font-bold text-slate-900">Manager Dashboard</h1>
+            <h1 className="mt-3 text-3xl font-bold text-slate-900">Branche Performance</h1>
             <p className="mt-1 text-sm text-slate-600">
               {stats.branchName || 'Your Branch'} · Period {shortDate(stats.period?.from)} to {shortDate(stats.period?.to)}
             </p>
@@ -158,6 +243,47 @@ export default function ManagerDashboardHome() {
             <BadgeCheck className="h-4 w-4 text-emerald-600" />
             Manage Reverse Pawning
           </button>
+        </div>
+
+        <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-4">
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-600">From</label>
+            <input
+              type="date"
+              name="from"
+              value={dateRange.from}
+              onChange={handleDateChange}
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-600">To</label>
+            <input
+              type="date"
+              name="to"
+              value={dateRange.to}
+              onChange={handleDateChange}
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+            />
+          </div>
+          <div className="flex items-end">
+            <button
+              type="button"
+              onClick={handleApplyPeriod}
+              className="w-full rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
+            >
+              Apply Period
+            </button>
+          </div>
+          <div className="flex items-end">
+            <button
+              type="button"
+              onClick={handleResetPeriod}
+              className="w-full rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+            >
+              Reset
+            </button>
+          </div>
         </div>
       </div>
 
@@ -207,12 +333,12 @@ export default function ManagerDashboardHome() {
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-5">
             <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm xl:col-span-3">
               <div className="mb-4 flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-slate-900">Loan Issuance Trend (MTD)</h3>
+                <h3 className="text-lg font-semibold text-slate-900">Loan Issuance Trend (Selected Period)</h3>
                 <span className="text-xs text-slate-500">Daily Loans</span>
               </div>
-              <SparkLine points={stats.timeSeries?.dailyLoans || []} colorClass="text-amber-500" />
+              <LineChart points={chartPoints} />
               <p className="mt-4 text-sm text-slate-600">
-                MTD loans: <span className="font-semibold text-slate-900">{formatMoney(stats.headlineKpis?.mtdNewLoansAmount)}</span>
+                Period loans: <span className="font-semibold text-slate-900">{formatMoney(periodLoanTotal)}</span>
               </p>
             </div>
 

@@ -195,7 +195,6 @@ export default function DashboardLayout() {
               />
               <div>
                 <h1 className="text-xl font-bold text-black">Smart Gold</h1>
-                <p className="text-xs text-black/70">{userRole === 'ADMIN' ? 'Head Office Control Panel' : userRole === 'MANAGER' ? 'Manager Dashboard' : 'Pawning Assistant Dashboard'}</p>
               </div>
             </div>
 

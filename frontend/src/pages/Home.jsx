@@ -205,10 +205,10 @@ export default function Home() {
                 <div className="flex flex-col items-center gap-2 sm:flex-row sm:justify-center">
                   <div className="flex items-center gap-2 text-slate-950">
                     <Landmark className="h-5 w-5 text-yellow-600" />
-                    <span className="text-lg font-semibold">Current annual interest rate: {annualRate}% p.a.</span>
+                    <span className="text-lg font-semibold">Current annual interest rate: {annualRate}% </span>
                   </div>
                   <span className="hidden h-1 w-1 rounded-full bg-slate-300 sm:inline-block" />
-                  <span className="text-sm text-slate-600">Adjustable by administrators in System Settings</span>
+                  <span className="text-sm text-slate-600"></span>
                 </div>
               </div>
             </div>

@@ -126,7 +126,6 @@ export default function CustomerDashboard() {
               />
               <div>
                 <h1 className="text-lg font-bold text-black">Smart Gold</h1>
-                <p className="text-xs text-black/70">Customer Dashboard</p>
               </div>
             </div>
 
