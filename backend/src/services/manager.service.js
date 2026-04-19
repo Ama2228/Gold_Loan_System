@@ -109,17 +109,27 @@ async function getBranchName(branchId) {
 }
 
 async function getBranchTargets(branchId, targetDate) {
-  const [rows] = await pool.query(
-    `
-    SELECT pawning_target_amount
-    FROM branch_targets
-    WHERE branch_id = ?
-      AND year = YEAR(?)
-      AND month = MONTH(?)
-    LIMIT 1
-    `,
-    [branchId, targetDate, targetDate]
-  );
+  let rows = [];
+  try {
+    const [result] = await pool.query(
+      `
+      SELECT pawning_target_amount
+      FROM branch_targets
+      WHERE branch_id = ?
+        AND year = YEAR(?)
+        AND month = MONTH(?)
+      LIMIT 1
+      `,
+      [branchId, targetDate, targetDate]
+    );
+    rows = result;
+  } catch (error) {
+    if (error && error.code === 'ER_NO_SUCH_TABLE') {
+      // Optional table in some setups; default to no configured target.
+      return { monthlyTarget: 0 };
+    }
+    throw error;
+  }
 
   const monthlyTarget = rows[0]?.pawning_target_amount
     ? parseFloat(rows[0].pawning_target_amount)
@@ -148,16 +158,25 @@ async function getBranchRankingForPeriod({ fromDate, toDate }) {
 
   const branchIds = loanRows.map(r => r.branch_id);
 
-  const [targetRows] = await pool.query(
-    `
-    SELECT branch_id, pawning_target_amount
-    FROM branch_targets
-    WHERE branch_id IN (${branchIds.map(() => '?').join(', ')})
-      AND year = YEAR(?)
-      AND month = MONTH(?)
-    `,
-    [...branchIds, toDate, toDate]
-  );
+  let targetRows = [];
+  try {
+    const [rows] = await pool.query(
+      `
+      SELECT branch_id, pawning_target_amount
+      FROM branch_targets
+      WHERE branch_id IN (${branchIds.map(() => '?').join(', ')})
+        AND year = YEAR(?)
+        AND month = MONTH(?)
+      `,
+      [...branchIds, toDate, toDate]
+    );
+    targetRows = rows;
+  } catch (error) {
+    if (error && error.code !== 'ER_NO_SUCH_TABLE') {
+      throw error;
+    }
+    // Missing branch_targets table: rank by MTD amount with target=0.
+  }
 
   const targetsByBranch = targetRows.reduce((acc, r) => {
     acc[r.branch_id] = parseFloat(r.pawning_target_amount || 0);

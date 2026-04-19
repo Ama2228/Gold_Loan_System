@@ -62,7 +62,12 @@ export default function TimeSlots() {
       })
 
       if (response.success) {
-        setSlots(response.data || [])
+        const normalizedSlots = (response.data || []).map((slot) => ({
+          ...slot,
+          start_time: slot.start_time ?? slot.slot_start ?? slot.start ?? null,
+          end_time: slot.end_time ?? slot.slot_end ?? slot.end ?? null
+        }))
+        setSlots(normalizedSlots)
       } else {
         setError(response.message || 'Failed to load time slots')
       }
