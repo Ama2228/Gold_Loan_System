@@ -115,6 +115,29 @@ class PawnTicketsController {
     } catch (error) {
       console.error('Create pawn ticket error:', error);
 
+      const message = String(error.message || '');
+      const lowerMessage = message.toLowerCase();
+
+      const isValidationError =
+        lowerMessage.includes('customer') ||
+        lowerMessage.includes('branch') ||
+        lowerMessage.includes('staff') ||
+        lowerMessage.includes('minimum') ||
+        lowerMessage.includes('article') ||
+        lowerMessage.includes('karat') ||
+        lowerMessage.includes('loan amount') ||
+        lowerMessage.includes('cannot exceed') ||
+        lowerMessage.includes('invalid') ||
+        lowerMessage.includes('required') ||
+        lowerMessage.includes('not found');
+
+      if (isValidationError) {
+        return res.status(400).json({
+          success: false,
+          message
+        });
+      }
+
       // Specific error messages
       if (error.message.includes('Customer')) {
         return res.status(400).json({

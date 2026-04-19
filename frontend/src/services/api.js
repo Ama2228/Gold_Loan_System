@@ -373,11 +373,11 @@ class ApiService {
   }
 
   // Log OTP to backend (for dev - prints in backend console)
-  async logOtp(purpose, otp) {
+  async logOtp(purpose, otp, mobileNumber = null) {
     try {
-      await this.customerRequest('/otp/log', {
+      await this.request('/auth/otp/log', {
         method: 'POST',
-        body: JSON.stringify({ purpose, otp }),
+        body: JSON.stringify({ purpose, otp, mobileNumber }),
       });
     } catch (_) {
       // Fire-and-forget; don't block UI on log failure

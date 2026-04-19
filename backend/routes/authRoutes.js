@@ -1,6 +1,6 @@
 const express = require('express');
 const { body } = require('express-validator');
-const { login, getMe, changePassword, registerLookup, register } = require('../controllers/authController');
+const { login, getMe, changePassword, registerLookup, register, logOtp } = require('../controllers/authController');
 const { authenticate } = require('../middleware/auth');
 const validate = require('../middleware/validate');
 
@@ -43,6 +43,11 @@ router.post(
   validate,
   register
 );
+
+// @route   POST /api/v1/auth/otp/log
+// @desc    Log OTP to backend console (dev/testing)
+// @access  Public
+router.post('/otp/log', logOtp);
 
 // @route   GET /api/v1/auth/me
 // @desc    Get current user

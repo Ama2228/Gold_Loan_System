@@ -322,10 +322,31 @@ const register = async (req, res) => {
   }
 };
 
+// @desc    Log OTP for dev/testing (prints OTP in backend console)
+// @route   POST /api/v1/auth/otp/log
+// @access  Public
+const logOtp = async (req, res) => {
+  try {
+    const { purpose, otp, mobileNumber } = req.body || {};
+    const label = purpose || 'OTP';
+    const target = mobileNumber ? ` -> ${mobileNumber}` : '';
+    console.log(`[OTP] ${label}${target}: ${otp || '(empty)'}`);
+    return res.json({ success: true });
+  } catch (error) {
+    console.error('Auth log OTP error:', error.message);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to log OTP',
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   login,
   getMe,
   changePassword,
   registerLookup,
-  register
+  register,
+  logOtp
 };

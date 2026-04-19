@@ -1,11 +1,17 @@
 import { useState } from 'react'
 import { Mail, Lock, CheckCircle, ArrowRight } from 'lucide-react'
+import api from '../services/api'
+
+function generateOtp() {
+  return String(Math.floor(100000 + Math.random() * 900000))
+}
 
 export default function ForgotPassword() {
   const [step, setStep] = useState('nic') // nic, verify, reset, success
   const [nic, setNic] = useState('')
   const [registeredPhone, setRegisteredPhone] = useState('')
   const [otp, setOtp] = useState('')
+  const [sentOtp, setSentOtp] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState('')
@@ -43,6 +49,9 @@ export default function ForgotPassword() {
     setLoading(true)
     setTimeout(() => {
       setLoading(false)
+      const generatedOtp = generateOtp()
+      api.logOtp('FORGOT_PASSWORD', generatedOtp, mockCustomers[nic].phone)
+      setSentOtp(generatedOtp)
       // Set registered phone number
       setRegisteredPhone(mockCustomers[nic].phone)
       setStep('verify')
@@ -61,7 +70,11 @@ export default function ForgotPassword() {
     setLoading(true)
     setTimeout(() => {
       setLoading(false)
-      setStep('reset')
+      if (otp === sentOtp) {
+        setStep('reset')
+      } else {
+        setError('Invalid OTP')
+      }
     }, 1000)
   }
 

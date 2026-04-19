@@ -17,23 +17,31 @@ const paymentsService = require('./payments.service');
  */
 
 class PawnTicketsService {
+  getDefaultPawningPeriods() {
+    return [
+      { period_id: null, period_name: '3 Months', duration_months: 3 },
+      { period_id: null, period_name: '6 Months', duration_months: 6 },
+      { period_id: null, period_name: '12 Months', duration_months: 12 }
+    ];
+  }
+
   /**
    * Generate unique receipt number
    * Format: BRANCH_CODE-YYYYMMDD-SEQNO
    */
-  async generateReceiptNo(branchCode, branchId) {
-    const today = new Date().toISOString().split('T')[0].replace(/-/g, '');
-    
+  async generateReceiptNo(branchCode, branchId, issueDate) {
+    const dateKey = String(issueDate || '').replace(/-/g, '');
+
     const query = `
-      SELECT COUNT(*) as count 
-      FROM pawn_tickets 
-      WHERE branch_id = ? AND DATE(issue_date) = CURDATE()
+      SELECT COALESCE(MAX(CAST(SUBSTRING_INDEX(receipt_no, '-', -1) AS UNSIGNED)), 0) as last_seq
+      FROM pawn_tickets
+      WHERE branch_id = ? AND issue_date = ?
     `;
-    
-    const [result] = await pool.query(query, [branchId]);
-    const seqNo = (result[0].count + 1).toString().padStart(4, '0');
-    
-    return `${branchCode}-${today}-${seqNo}`;
+
+    const [result] = await pool.query(query, [branchId, issueDate]);
+    const seqNo = (Number(result[0].last_seq || 0) + 1).toString().padStart(4, '0');
+
+    return `${branchCode}-${dateKey}-${seqNo}`;
   }
 
   /**
@@ -150,33 +158,56 @@ class PawnTicketsService {
    * Get all active pawning periods (for staff metadata)
    */
   async getAllPawningPeriods() {
-    const [rows] = await pool.query(
-      `SELECT period_id, period_name, duration_months 
-       FROM pawning_periods 
-       WHERE is_active = 1 
-       ORDER BY duration_months`
-    );
-    return rows;
+    try {
+      const [rows] = await pool.query(
+        `SELECT period_id, period_name, duration_months 
+         FROM pawning_periods 
+         WHERE is_active = 1 
+         ORDER BY duration_months`
+      );
+
+      if (!rows || rows.length === 0) {
+        return this.getDefaultPawningPeriods();
+      }
+
+      return rows;
+    } catch (error) {
+      // Allow staff flow to continue when master table is not seeded yet.
+      if (error && error.code === 'ER_NO_SUCH_TABLE') {
+        return this.getDefaultPawningPeriods();
+      }
+      throw error;
+    }
   }
 
   /**
    * Get pawning period details
    */
   async getPawningPeriod(periodMonths) {
-    const query = `
-      SELECT period_id, duration_months, period_name
-      FROM pawning_periods
-      WHERE duration_months = ? AND is_active = 1
-      LIMIT 1
-    `;
-    
-    const [rows] = await pool.query(query, [periodMonths]);
-    
-    if (rows.length === 0) {
-      throw new Error(`Invalid pawning period: ${periodMonths} months`);
+    try {
+      const query = `
+        SELECT period_id, duration_months, period_name
+        FROM pawning_periods
+        WHERE duration_months = ? AND is_active = 1
+        LIMIT 1
+      `;
+
+      const [rows] = await pool.query(query, [periodMonths]);
+      if (rows && rows.length > 0) {
+        return rows[0];
+      }
+    } catch (error) {
+      if (!error || error.code !== 'ER_NO_SUCH_TABLE') {
+        throw error;
+      }
     }
-    
-    return rows[0];
+
+    const fallback = this.getDefaultPawningPeriods().find((p) => p.duration_months === Number(periodMonths));
+    if (fallback) {
+      return fallback;
+    }
+
+    throw new Error(`Invalid pawning period: ${periodMonths} months`);
   }
 
   /**
@@ -305,15 +336,16 @@ class PawnTicketsService {
         throw new Error(`Loan amount (${finalLoanAmount}) is below minimum loan amount (5000)`);
       }
 
-      // 10. Calculate due date
-      const issueDate = new Date().toISOString().split('T')[0];
+      // 10. Use DB business date so receipt sequence and issue_date stay consistent.
+      const [businessDateRows] = await conn.query('SELECT DATE_FORMAT(CURDATE(), "%Y-%m-%d") as issue_date');
+      const issueDate = businessDateRows[0].issue_date;
       const dueDate = this.calculateDueDate(issueDate, pawning_period_months);
 
       // 11. Get annual interest rate
       const annualInterestRate = await this.getAnnualInterestRate(pawning_period_months);
 
       // 12. Generate receipt number
-      const receiptNo = await this.generateReceiptNo(branchInfo.branch_code, branch_id);
+      const receiptNo = await this.generateReceiptNo(branchInfo.branch_code, branch_id, issueDate);
 
       // ===== TRANSACTION PHASE =====
 

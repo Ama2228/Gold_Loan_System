@@ -122,6 +122,9 @@ function LineChart({ points }) {
   )
 }
 
+// Backward-compatible alias for older JSX usage.
+const SparkLine = LineChart
+
 export default function ManagerDashboardHome() {
   const navigate = useNavigate()
   const today = new Date().toISOString().slice(0, 10)
