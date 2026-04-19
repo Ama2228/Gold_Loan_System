@@ -2,15 +2,16 @@ import { useState } from 'react'
 import { Search } from 'lucide-react'
 import api from '../../services/api'
 
-const PAYMENT_METHOD_MAP = { 'Cash': 'CASH', 'Bank Transfer': 'ONLINE', 'Card Payment': 'CARD', 'Mobile Payment': 'ONLINE' }
 const RENEWAL_PERIODS = [3, 6, 12]
+
+const formatDateOnly = (value) => (value ? String(value).slice(0, 10) : '')
 
 export default function RenewTicket() {
   const [ticketNumber, setTicketNumber] = useState('')
   const [ticket, setTicket] = useState(null)
   const [loading, setLoading] = useState(false)
   const [renewalMonths, setRenewalMonths] = useState(6)
-  const [paymentMethod, setPaymentMethod] = useState('Cash')
+  const [partPaymentAmount, setPartPaymentAmount] = useState('')
   const [notes, setNotes] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
@@ -48,7 +49,16 @@ export default function RenewTicket() {
   const ps = ticket?.payment_summary
   const outstanding = ps?.outstandingPrincipal ?? 0
   const annualRate = ticket?.annual_interest_rate ?? 0
-  const interestAmount = outstanding * (annualRate / 100) * (renewalMonths / 12)
+  const parsedPartPayment = partPaymentAmount === '' ? NaN : parseFloat(partPaymentAmount)
+  const hasPartPayment = Number.isFinite(parsedPartPayment)
+  const maxPartPayment = Math.max(0, outstanding - 5000)
+  const isPartPaymentValid = !hasPartPayment || (
+    parsedPartPayment > 500 && parsedPartPayment < maxPartPayment
+  )
+  const effectiveOutstandingForDisplay = hasPartPayment && isPartPaymentValid
+    ? Math.max(0, outstanding - parsedPartPayment)
+    : outstanding
+  const interestAmount = effectiveOutstandingForDisplay * (annualRate / 100) * (renewalMonths / 12)
   const interestDisplay = Math.round(interestAmount * 100) / 100
 
   const getNewDueDate = () => {
@@ -63,17 +73,33 @@ export default function RenewTicket() {
     setError('')
     if (!ticket) return
 
+    if (hasPartPayment) {
+      if (!isPartPaymentValid) {
+        setError(`Part payment must be greater than Rs. 500 and less than Rs. ${maxPartPayment.toLocaleString('en-US', { minimumFractionDigits: 2 })}`)
+        return
+      }
+    }
+
     setSubmitting(true)
     try {
+      if (hasPartPayment) {
+        await api.processPartPayment(ticket.ticket_id, {
+          amount: parsedPartPayment,
+          paymentMethod: 'CASH',
+          note: 'Part payment before renewal'
+        })
+      }
+
       const res = await api.processRenewal(ticket.ticket_id, {
-        paymentMethod: PAYMENT_METHOD_MAP[paymentMethod] || 'CASH',
+        paymentMethod: 'CASH',
         renewalMonths,
         note: notes || null
       })
       if (res.success) {
-        alert(`Ticket renewed successfully! New due date: ${res.data.new_due_date}`)
+        alert(`Ticket renewed successfully! New due date: ${formatDateOnly(res.data.new_due_date)}`)
         setTicket(null)
         setTicketNumber('')
+        setPartPaymentAmount('')
       } else {
         setError(res.message || 'Renewal failed')
       }
@@ -164,7 +190,7 @@ export default function RenewTicket() {
                 <div className="flex justify-between"><span className="text-gray-600">Customer</span><span className="font-semibold text-gray-900">{ticket.customer?.name}</span></div>
                 <div className="flex justify-between"><span className="text-gray-600">Outstanding Principal</span><span className="font-semibold text-gray-900">Rs. {outstanding.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span></div>
                 <div className="flex justify-between"><span className="text-gray-600">Interest Rate</span><span className="font-semibold text-gray-900">{annualRate}% p.a.</span></div>
-                <div className="flex justify-between"><span className="text-gray-600">Current Due Date</span><span className="font-semibold text-gray-900">{ticket.due_date}</span></div>
+                <div className="flex justify-between"><span className="text-gray-600">Current Due Date</span><span className="font-semibold text-gray-900">{formatDateOnly(ticket.due_date)}</span></div>
                 <div className="flex justify-between"><span className="text-gray-600">Renewal Period</span><span className="font-semibold text-gray-900">{renewalMonths} Months</span></div>
                 <div className="flex justify-between"><span className="text-gray-600">New Due Date</span><span className="font-semibold text-gray-900">{getNewDueDate()}</span></div>
               </div>
@@ -188,17 +214,28 @@ export default function RenewTicket() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Payment Method</label>
-                  <select
-                    value={paymentMethod}
-                    onChange={(e) => setPaymentMethod(e.target.value)}
-                    className="w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                  >
-                    <option>Cash</option>
-                    <option>Bank Transfer</option>
-                    <option>Card Payment</option>
-                    <option>Mobile Payment</option>
-                  </select>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Part Payment Amount (Optional)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={partPaymentAmount}
+                    onChange={(e) => setPartPaymentAmount(e.target.value)}
+                    placeholder={`> 500 and < ${maxPartPayment.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
+                    className={`w-full rounded-lg border px-4 py-2 text-gray-900 focus:outline-none focus:ring-1 ${
+                      hasPartPayment && !isPartPaymentValid
+                        ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
+                        : 'border-gray-300 focus:border-yellow-500 focus:ring-yellow-500'
+                    }`}
+                  />
+                  <p className="mt-1 text-xs text-gray-600">
+                    If entered, must be greater than Rs. 500 and less than Rs. {maxPartPayment.toLocaleString('en-US', { minimumFractionDigits: 2 })}.
+                  </p>
+                  {hasPartPayment && !isPartPaymentValid && (
+                    <p className="mt-1 text-xs text-red-600">
+                      Invalid part payment amount for this ticket.
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Notes (Optional)</label>
@@ -213,7 +250,7 @@ export default function RenewTicket() {
                 {error && <p className="text-sm text-red-600">{error}</p>}
                 <button
                   type="submit"
-                  disabled={submitting}
+                  disabled={submitting || (hasPartPayment && !isPartPaymentValid)}
                   className="w-full rounded-lg bg-yellow-500 hover:bg-yellow-600 px-6 py-3 text-black font-semibold transition-colors disabled:opacity-70"
                 >
                   {submitting ? 'Processing...' : 'Save & Print'}

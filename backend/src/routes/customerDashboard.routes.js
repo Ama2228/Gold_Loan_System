@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getCustomerDashboard, getCustomerReceipts, getCustomerReceiptDetail, processCustomerPartPayment, getCustomerProfile, updateCustomerProfile, getCustomerAppointments, createCustomerAppointment, getSlotAvailability, getCustomerBranches, getCustomerNotifications, logOtp } = require('../controllers/customer.controller');
+const { getCustomerDashboard, getCustomerReceipts, getCustomerReceiptDetail, processCustomerPartPayment, getCustomerProfile, updateCustomerProfile, getCustomerAppointments, createCustomerAppointment, cancelCustomerAppointment, getSlotAvailability, getCustomerBranches, getCustomerNotifications, logOtp } = require('../controllers/customer.controller');
 const { authenticate, authorize } = require('../../middleware/auth');
 
 // Protect all routes with JWT authentication
@@ -53,6 +53,11 @@ router.get('/appointments', getCustomerAppointments);
 // @desc    Create customer appointment
 // @access  Private (Customer only)
 router.post('/appointments', createCustomerAppointment);
+
+// @route   PATCH /api/customer/appointments/:appointmentId/cancel
+// @desc    Cancel customer appointment (allowed only until day before)
+// @access  Private (Customer only)
+router.patch('/appointments/:appointmentId/cancel', cancelCustomerAppointment);
 
 // @route   GET /api/customer/branches
 // @desc    List branches (for appointment booking)

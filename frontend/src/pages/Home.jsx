@@ -1,19 +1,89 @@
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowRight, Shield, Sparkles, Clock3, BadgePercent, Landmark } from 'lucide-react'
+import api from '../services/api'
 
 export default function Home() {
-  const goldRates = [
+  const [annualRate, setAnnualRate] = useState(12)
+  const [goldRates, setGoldRates] = useState([
     { karatage: '24K', purity: '99.9%', advancePerGram: 'LKR 8,500' },
     { karatage: '22K', purity: '91.6%', advancePerGram: 'LKR 7,800' },
     { karatage: '20K', purity: '83.3%', advancePerGram: 'LKR 7,100' },
     { karatage: '18K', purity: '75.0%', advancePerGram: 'LKR 6,400' }
-  ]
+  ])
+
+  const purityMap = {
+    24: '99.9%',
+    22: '91.6%',
+    20: '83.3%',
+    18: '75.0%'
+  }
 
   const highlights = [
     { icon: Clock3, title: 'Fast processing', text: 'Quick evaluation and smooth handling at the branch.' },
     { icon: Shield, title: 'Safe storage', text: 'Gold items are logged, protected, and securely managed.' },
     { icon: BadgePercent, title: 'One annual rate', text: 'A single annual interest rate applies to every karatage.' }
   ]
+
+  useEffect(() => {
+    let mounted = true
+
+    async function loadAnnualRate() {
+      try {
+        const res = await api.getPublicAnnualInterestRate()
+        const rate = res?.data?.rate
+        if (mounted && rate !== undefined && rate !== null && !Number.isNaN(Number(rate))) {
+          setAnnualRate(Number(rate))
+        }
+      } catch {
+        // Keep fallback value when public endpoint is unavailable.
+      }
+    }
+
+    loadAnnualRate()
+
+    return () => {
+      mounted = false
+    }
+  }, [])
+
+  useEffect(() => {
+    let mounted = true
+
+    async function loadKaratRates() {
+      try {
+        const res = await api.getPublicKaratAdvanceRates()
+        const rows = Array.isArray(res?.data) ? res.data : []
+        const byKarat = {}
+        rows.forEach((row) => {
+          byKarat[Number(row.karat)] = Number(row.advance_value_per_gram)
+        })
+
+        const ordered = [24, 22, 20, 18].map((karat) => {
+          const value = byKarat[karat]
+          return {
+            karatage: `${karat}K`,
+            purity: purityMap[karat],
+            advancePerGram: Number.isFinite(value)
+              ? `LKR ${value.toLocaleString('en-LK')}`
+              : 'Not set'
+          }
+        })
+
+        if (mounted) {
+          setGoldRates(ordered)
+        }
+      } catch {
+        // Keep fallback rates when public endpoint is unavailable.
+      }
+    }
+
+    loadKaratRates()
+
+    return () => {
+      mounted = false
+    }
+  }, [])
 
   return (
     <div
@@ -135,7 +205,7 @@ export default function Home() {
                 <div className="flex flex-col items-center gap-2 sm:flex-row sm:justify-center">
                   <div className="flex items-center gap-2 text-slate-950">
                     <Landmark className="h-5 w-5 text-yellow-600" />
-                    <span className="text-lg font-semibold">Current annual interest rate: 12% p.a.</span>
+                    <span className="text-lg font-semibold">Current annual interest rate: {annualRate}% p.a.</span>
                   </div>
                   <span className="hidden h-1 w-1 rounded-full bg-slate-300 sm:inline-block" />
                   <span className="text-sm text-slate-600">Adjustable by administrators in System Settings</span>

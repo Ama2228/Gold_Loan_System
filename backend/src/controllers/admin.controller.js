@@ -1,4 +1,39 @@
 const adminService = require('../services/admin.service');
+const { pool } = require('../../config/database');
+
+async function resolveUpdaterStaffId(userId) {
+  if (!userId) return null;
+
+  const [rows] = await pool.query(
+    'SELECT staff_id FROM staff_profiles WHERE staff_id = ? LIMIT 1',
+    [userId]
+  );
+
+  return rows.length > 0 ? rows[0].staff_id : null;
+}
+
+// @desc    Get admin dashboard overview
+// @route   GET /api/v1/admin/dashboard
+// @access  Private/Admin
+const getDashboard = async (req, res) => {
+  try {
+    console.log('📊 Fetching admin dashboard overview');
+    const result = await adminService.getDashboardOverview();
+
+    res.json({
+      success: true,
+      message: 'Dashboard retrieved successfully',
+      data: result.data
+    });
+  } catch (error) {
+    console.error('❌ Get admin dashboard error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error retrieving admin dashboard',
+      error: error.message
+    });
+  }
+};
 
 // @desc    Get all branches
 // @route   GET /api/v1/admin/branches
@@ -845,13 +880,13 @@ const updateKaratAdvanceRate = async (req, res) => {
     const { advance_value_per_gram } = req.body;
 
     // Validate karat parameter
-    const validKarats = [18, 20, 22];
+    const validKarats = [18, 20, 22, 24];
     const karatNum = Number(karat);
 
     if (!validKarats.includes(karatNum)) {
       return res.status(400).json({
         success: false,
-        message: 'karat must be one of: 18, 20, 22'
+        message: 'karat must be one of: 18, 20, 22, 24'
       });
     }
 
@@ -872,10 +907,12 @@ const updateKaratAdvanceRate = async (req, res) => {
       });
     }
 
+    const updaterStaffId = await resolveUpdaterStaffId(req.user?.user_id);
+
     const rateData = {
       karat: karatNum,
       advance_value_per_gram: advanceValue,
-      updated_by_staff_id: req.user?.user_id || null
+      updated_by_staff_id: updaterStaffId
     };
 
     const result = await adminService.updateKaratAdvanceRate(rateData);
@@ -911,7 +948,7 @@ const getSystemSettings = async (req, res) => {
     // Create a key-value map from the array
     const settingsMap = {};
     result.data.forEach(setting => {
-      settingsMap[setting.key] = setting.value;
+      settingsMap[setting.setting_key] = setting.setting_value;
     });
 
     res.json({
@@ -935,6 +972,8 @@ const getSystemSettings = async (req, res) => {
 // @access  Private/Admin
 const updateSystemSetting = async (req, res) => {
   try {
+      const updaterStaffId = await resolveUpdaterStaffId(req.user?.user_id);
+
     console.log('✏️ Updating system setting');
     const { key } = req.params;
     const { value } = req.body;
@@ -1013,7 +1052,7 @@ const updateSystemSetting = async (req, res) => {
       });
     }
 
-    const result = await adminService.updateSystemSetting(key, String(value), req.user?.user_id || null);
+    const result = await adminService.updateSystemSetting(key, String(value), updaterStaffId);
 
     if (!result.success) {
       if (result.code === 'NOT_FOUND') {
@@ -1038,6 +1077,7 @@ const updateSystemSetting = async (req, res) => {
 };
 
 module.exports = {
+  getDashboard,
   getBranches,
   createBranch,
   updateBranch,

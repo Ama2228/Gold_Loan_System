@@ -50,6 +50,16 @@ export default function MyReceipts() {
     String(r.receipt_no || '').toLowerCase().includes(searchQuery.toLowerCase())
   )
 
+  const currentInterestForToday = Number(
+    selectedDetail?.current_interest_for_today ??
+    selectedDetail?.payment_summary?.accruedInterest ??
+    0
+  )
+
+  const interestAsOfDate = selectedDetail?.interest_as_of_date
+    ? String(selectedDetail.interest_as_of_date).slice(0, 10)
+    : new Date().toISOString().slice(0, 10)
+
   return (
     <div className="min-h-screen bg-gray-100">
       <CustomerHeader />
@@ -169,6 +179,13 @@ export default function MyReceipts() {
                           <p className="text-xs font-semibold text-gray-600 uppercase">Due Date</p>
                           <p className="text-lg font-bold text-gray-900">{String(selectedDetail.receipt.due_date).slice(0, 10)}</p>
                         </div>
+                        <div>
+                          <p className="text-xs font-semibold text-gray-600 uppercase">Current Interest for Today</p>
+                          <p className="text-lg font-bold text-yellow-600">
+                            Rs. {currentInterestForToday.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </p>
+                          <p className="text-xs text-gray-500 mt-1">As of {interestAsOfDate}</p>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -181,7 +198,6 @@ export default function MyReceipts() {
                         <thead>
                           <tr className="border-b-2 border-yellow-500">
                             <th className="text-left py-2 px-3 font-bold text-gray-900">Item Type</th>
-                            <th className="text-left py-2 px-3 font-bold text-gray-900">Karat</th>
                             <th className="text-right py-2 px-3 font-bold text-gray-900">Net Weight (g)</th>
                             <th className="text-right py-2 px-3 font-bold text-gray-900">Value (Rs.)</th>
                           </tr>
@@ -190,7 +206,6 @@ export default function MyReceipts() {
                           {(selectedDetail.goldArticles || []).map((article, idx) => (
                             <tr key={idx} className="border-b border-gray-200 hover:bg-gray-50">
                               <td className="py-3 px-3 text-gray-900">{article.article_description || article.item_type}</td>
-                              <td className="py-3 px-3 text-gray-900">{article.purity_karats || article.purity_karat}</td>
                               <td className="py-3 px-3 text-right text-gray-900">{article.weight_grams || article.net_weight_grams}</td>
                               <td className="py-3 px-3 text-right font-semibold text-gray-900">
                                 {(article.assessed_value ?? article.appraised_value ?? 0).toLocaleString()}

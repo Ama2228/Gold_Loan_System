@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Trash2 } from 'lucide-react'
 import api from '../../services/api'
+import CustomerRatingCard from '../../components/CustomerRatingCard'
 
 const ITEM_TYPES = ['Chain', 'Ring', 'Bangle', 'Bracelet', 'Earring', 'Pendant', 'Necklace']
 const INTEREST_PERCENTAGE = 100
@@ -27,6 +28,9 @@ export default function NewTicket() {
   const [selectedCustomer, setSelectedCustomer] = useState(null)
   const [loadingSearch, setLoadingSearch] = useState(false)
   const debouncedSearch = useDebounce(customerSearch, 300)
+  const [rating, setRating] = useState(null)
+  const [ratingLoading, setRatingLoading] = useState(false)
+  const [ratingError, setRatingError] = useState(null)
 
   const [pawningPeriodMonths, setPawningPeriodMonths] = useState(6)
   const [articles, setArticles] = useState([])
@@ -110,6 +114,17 @@ export default function NewTicket() {
     })
     setCustomerSearch(`${customer.full_name} (${customer.nic})`)
     setShowCustomerDropdown(false)
+
+    setRating(null)
+    setRatingError(null)
+    setRatingLoading(true)
+    api.getCustomerRating(customer.customer_id)
+      .then((res) => setRating(res.data))
+      .catch((err) => {
+        setRatingError(err.message || 'Failed to load customer rating')
+        setRating(null)
+      })
+      .finally(() => setRatingLoading(false))
   }
 
   const handleArticleChange = (e) => {
@@ -253,6 +268,9 @@ export default function NewTicket() {
         })
         setSelectedCustomer(null)
         setCustomerSearch('')
+        setRating(null)
+        setRatingError(null)
+        setRatingLoading(false)
         setArticles([])
         setCurrentArticle({
           item_type: 'Chain',
@@ -575,11 +593,29 @@ export default function NewTicket() {
                   onClick={() => {
                     setSelectedCustomer(null)
                     setCustomerSearch('')
+                    setRating(null)
+                    setRatingError(null)
+                    setRatingLoading(false)
                   }}
                   className="w-full mt-4 rounded-lg border-2 border-yellow-500 px-4 py-2 text-yellow-500 font-semibold hover:bg-yellow-50 transition-colors"
                 >
                   Change Customer
                 </button>
+
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Customer Rating</p>
+                    {ratingLoading && <span className="text-xs text-gray-500">Calculating...</span>}
+                    {!ratingLoading && ratingError && <span className="text-xs text-red-600">{ratingError}</span>}
+                  </div>
+                  <CustomerRatingCard
+                    score={rating?.score}
+                    label={rating?.label}
+                    metrics={rating?.metrics}
+                    explanation={rating?.explanation}
+                    compact={true}
+                  />
+                </div>
               </div>
             ) : (
               <p className="text-sm text-gray-500">Search and select a customer to continue.</p>
@@ -631,7 +667,7 @@ export default function NewTicket() {
               disabled={isSubmitting || !selectedCustomer || articles.length === 0 || !minLoanMet || !maxLoanMet}
               className="w-full mt-6 rounded-lg bg-yellow-500 px-6 py-3 text-black font-semibold hover:bg-yellow-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              {isSubmitting ? 'Saving...' : 'Save'}
+              {isSubmitting ? 'Saving...' : 'Save & Print'}
             </button>
           </div>
         </div>

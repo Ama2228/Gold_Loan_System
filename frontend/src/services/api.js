@@ -114,6 +114,14 @@ class ApiService {
     return await this.post('/auth/register', { nic, password });
   }
 
+  async getPublicAnnualInterestRate() {
+    return this.get('/public/annual-interest-rate');
+  }
+
+  async getPublicKaratAdvanceRates() {
+    return this.get('/public/karat-advance-rates');
+  }
+
   // Logout
   logout() {
     this.removeToken();
@@ -200,6 +208,22 @@ class ApiService {
   async createManagerReversePawning({ receiptNo, reason }) {
     const res = await this.post('/manager/reverse-pawning', { receiptNo, reason });
     return res;
+  }
+
+  async approveManagerReversePawning(reverseId) {
+    return this.request(`/manager/reverse-pawning/${reverseId}/approve`, {
+      method: 'PATCH'
+    });
+  }
+
+  async rejectManagerReversePawning(reverseId) {
+    return this.request(`/manager/reverse-pawning/${reverseId}/reject`, {
+      method: 'PATCH'
+    });
+  }
+
+  async getAdminDashboard() {
+    return this.get('/admin/dashboard');
   }
 
   async searchStaffPawnTickets(searchTerm, reversibleOnly = false) {
@@ -295,6 +319,12 @@ class ApiService {
     return this.customerRequest('/appointments', {
       method: 'POST',
       body: JSON.stringify(payload),
+    });
+  }
+
+  async cancelCustomerAppointment(appointmentId) {
+    return this.customerRequest(`/appointments/${encodeURIComponent(appointmentId)}/cancel`, {
+      method: 'PATCH',
     });
   }
 

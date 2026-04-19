@@ -520,13 +520,20 @@ class CustomerService {
         }
       }
 
+      const todayIso = new Date().toISOString().split('T')[0];
+      const currentInterestForToday = paymentSummary
+        ? Number(paymentSummary.accruedInterest || 0)
+        : 0;
+
       return {
         success: true,
         data: {
           receipt: { ...receipt, ticket_id: ticketId },
           goldArticles,
           payments,
-          payment_summary: paymentSummary
+          payment_summary: paymentSummary,
+          current_interest_for_today: currentInterestForToday,
+          interest_as_of_date: todayIso
         }
       };
     } catch (error) {

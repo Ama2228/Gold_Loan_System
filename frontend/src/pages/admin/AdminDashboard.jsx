@@ -1,13 +1,67 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Building2, Users, UserCheck, Ticket, AlertCircle, Gavel } from 'lucide-react'
+import api from '../../services/api'
 
 export default function AdminDashboard() {
   const navigate = useNavigate()
   const userRole = sessionStorage.getItem('userRole')
+  const isAdmin = userRole === 'ADMIN'
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [dashboard, setDashboard] = useState(null)
 
-  // Role guard - only ADMIN can access
-  if (userRole !== 'ADMIN') {
+  useEffect(() => {
+    if (!isAdmin) {
+      return
+    }
+
+    let mounted = true
+
+    async function loadDashboard() {
+      setLoading(true)
+      setError('')
+      try {
+        const res = await api.getAdminDashboard()
+        if (mounted) {
+          setDashboard(res?.data ?? null)
+        }
+      } catch (err) {
+        if (mounted) {
+          setError(err.message || 'Failed to load admin dashboard')
+        }
+      } finally {
+        if (mounted) {
+          setLoading(false)
+        }
+      }
+    }
+
+    loadDashboard()
+
+    return () => {
+      mounted = false
+    }
+  }, [isAdmin])
+
+  const stats = dashboard?.summary ?? {
+    totalBranches: 0,
+    totalStaff: 0,
+    totalCustomers: 0,
+    activeTickets: 0,
+    overdueTickets: 0,
+    auctionCandidates: 0
+  }
+
+  const branchActivity = dashboard?.branchActivity ?? []
+  const overdueList = dashboard?.overdueList ?? []
+  const alerts = {
+    reversePawning: stats.pendingReversePawning ?? 0,
+    smsFailed: stats.smsFailed ?? 0,
+    branchClosed: stats.branchClosedToday ?? 0
+  }
+
+  if (!isAdmin) {
     return (
       <div className="rounded-lg bg-red-50 border border-red-200 p-8 text-center">
         <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
@@ -17,39 +71,30 @@ export default function AdminDashboard() {
     )
   }
 
-  // Dummy stats data
-  const stats = {
-    totalBranches: 12,
-    totalStaff: 48,
-    totalCustomers: 3240,
-    activeTickets: 1456,
-    overdueTickets: 87,
-    auctionCandidates: 23
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">
+          <div className="h-8 w-56 animate-pulse rounded bg-gray-200" />
+          <div className="mt-3 h-4 w-72 animate-pulse rounded bg-gray-100" />
+          <div className="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <div key={index} className="h-28 animate-pulse rounded-xl bg-gray-100" />
+            ))}
+          </div>
+        </div>
+      </div>
+    )
   }
 
-  // Dummy branch activity data
-  const branchActivity = [
-    { branchCode: '0001', branchName: 'Colombo Central', newTickets: 15, payments: 28, overdue: 8 },
-    { branchCode: '0002', branchName: 'Kandy Branch', newTickets: 12, payments: 22, overdue: 5 },
-    { branchCode: '0003', branchName: 'Galle Branch', newTickets: 8, payments: 18, overdue: 3 },
-    { branchCode: '0004', branchName: 'Negombo Branch', newTickets: 10, payments: 15, overdue: 6 },
-    { branchCode: '0005', branchName: 'Matara Branch', newTickets: 6, payments: 12, overdue: 2 }
-  ]
-
-  // Dummy overdue list
-  const overdueList = [
-    { receiptNo: '0001-25000001', branch: 'Colombo Central', dueDate: '2026-01-05', daysOverdue: 37 },
-    { receiptNo: '0002-25000023', branch: 'Kandy Branch', dueDate: '2026-01-12', daysOverdue: 30 },
-    { receiptNo: '0003-25000045', branch: 'Galle Branch', dueDate: '2026-01-20', daysOverdue: 22 },
-    { receiptNo: '0001-25000067', branch: 'Colombo Central', dueDate: '2026-01-28', daysOverdue: 14 },
-    { receiptNo: '0004-25000089', branch: 'Negombo Branch', dueDate: '2026-02-03', daysOverdue: 8 }
-  ]
-
-  // System alerts
-  const alerts = {
-    reversePawning: 8,
-    smsFailed: 12,
-    branchClosed: 1
+  if (error) {
+    return (
+      <div className="rounded-lg bg-red-50 border border-red-200 p-8 text-center">
+        <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+        <h2 className="text-2xl font-bold text-red-900 mb-2">Unable to load admin dashboard</h2>
+        <p className="text-red-700">{error}</p>
+      </div>
+    )
   }
 
   return (
@@ -61,6 +106,9 @@ export default function AdminDashboard() {
         <div className="mt-3 inline-block">
           <span className="inline-block rounded-lg bg-yellow-100 px-4 py-1 text-sm font-semibold text-yellow-800">
             Head Office (0001)
+          </span>
+          <span className="ml-3 inline-block rounded-lg bg-gray-100 px-4 py-1 text-sm font-semibold text-gray-700">
+            Annual rate: {stats.annualInterestRate ?? 0}%
           </span>
         </div>
       </div>
@@ -162,7 +210,7 @@ export default function AdminDashboard() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {branchActivity.map((branch) => (
+                  {branchActivity.length > 0 ? branchActivity.map((branch) => (
                     <tr key={branch.branchCode} className="hover:bg-gray-50">
                       <td className="px-6 py-4 text-sm font-semibold text-gray-900">{branch.branchCode}</td>
                       <td className="px-6 py-4 text-sm text-gray-700">{branch.branchName}</td>
@@ -182,7 +230,13 @@ export default function AdminDashboard() {
                         </span>
                       </td>
                     </tr>
-                  ))}
+                  )) : (
+                    <tr>
+                      <td className="px-6 py-8 text-center text-sm text-gray-500" colSpan={5}>
+                        No branch activity available yet.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -194,8 +248,8 @@ export default function AdminDashboard() {
               <h2 className="text-lg font-bold text-yellow-600">Overdue Summary (Top 5)</h2>
             </div>
             <div className="p-6 space-y-3">
-              {overdueList.map((item, index) => (
-                <div key={index} className="rounded-lg border border-gray-200 p-4 hover:border-yellow-300 transition-colors">
+              {overdueList.length > 0 ? overdueList.map((item) => (
+                <div key={item.receiptNo} className="rounded-lg border border-gray-200 p-4 hover:border-yellow-300 transition-colors">
                   <div className="flex items-center justify-between mb-2">
                     <p className="font-semibold text-gray-900">{item.receiptNo}</p>
                     <span className="inline-block rounded-full bg-red-100 px-3 py-1 text-xs font-bold text-red-800">
@@ -203,12 +257,16 @@ export default function AdminDashboard() {
                     </span>
                   </div>
                   <div className="flex items-center gap-4 text-xs text-gray-600">
-                    <span>Branch: {item.branch}</span>
+                    <span>Branch: {item.branchName}</span>
                     <span>•</span>
                     <span>Due: {item.dueDate}</span>
                   </div>
                 </div>
-              ))}
+              )) : (
+                <div className="rounded-lg border border-gray-200 p-4 text-sm text-gray-500">
+                  No overdue tickets found.
+                </div>
+              )}
             </div>
           </div>
         </div>

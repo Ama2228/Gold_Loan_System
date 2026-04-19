@@ -2,14 +2,13 @@ import { useState } from 'react'
 import { Search } from 'lucide-react'
 import api from '../../services/api'
 
-const PAYMENT_METHOD_MAP = { 'Cash': 'CASH', 'Bank Transfer': 'ONLINE', 'Card Payment': 'CARD', 'Mobile Payment': 'ONLINE' }
+const formatDateOnly = (value) => (value ? String(value).slice(0, 10) : '')
 
 export default function Redemption() {
   const [ticketNumber, setTicketNumber] = useState('')
   const [ticket, setTicket] = useState(null)
   const [loading, setLoading] = useState(false)
   const [payableAmount, setPayableAmount] = useState('')
-  const [paymentMethod, setPaymentMethod] = useState('Cash')
   const [notes, setNotes] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
@@ -68,7 +67,7 @@ export default function Redemption() {
     try {
       const res = await api.processRedemption(ticket.ticket_id, {
         amount: amt,
-        paymentMethod: PAYMENT_METHOD_MAP[paymentMethod] || 'CASH',
+        paymentMethod: 'CASH',
         note: notes || null
       })
       if (res.success) {
@@ -169,8 +168,8 @@ export default function Redemption() {
                 {overduePenalty > 0 && (
                   <div className="flex justify-between"><span className="text-gray-600">Overdue Penalty</span><span className="font-semibold text-gray-900">Rs. {overduePenalty.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span></div>
                 )}
-                <div className="flex justify-between"><span className="text-gray-600">Issued Date</span><span className="font-semibold text-gray-900">{ticket.issue_date}</span></div>
-                <div className="flex justify-between"><span className="text-gray-600">Due Date</span><span className="font-semibold text-gray-900">{ticket.due_date}</span></div>
+                <div className="flex justify-between"><span className="text-gray-600">Issued Date</span><span className="font-semibold text-gray-900">{formatDateOnly(ticket.issue_date)}</span></div>
+                <div className="flex justify-between"><span className="text-gray-600">Due Date</span><span className="font-semibold text-gray-900">{formatDateOnly(ticket.due_date)}</span></div>
               </div>
 
               <div className="mt-5 flex items-center justify-between border-t border-gray-200 pt-4">
@@ -193,19 +192,6 @@ export default function Redemption() {
                   <p className="text-xs text-gray-500 mt-1">Minimum: Rs. {totalPayable.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Payment Method</label>
-                  <select
-                    value={paymentMethod}
-                    onChange={(e) => setPaymentMethod(e.target.value)}
-                    className="w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                  >
-                    <option>Cash</option>
-                    <option>Bank Transfer</option>
-                    <option>Card Payment</option>
-                    <option>Mobile Payment</option>
-                  </select>
-                </div>
-                <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Notes (Optional)</label>
                   <textarea
                     value={notes}
@@ -221,7 +207,7 @@ export default function Redemption() {
                   disabled={submitting}
                   className="w-full rounded-lg bg-yellow-500 hover:bg-yellow-600 px-6 py-3 text-black font-semibold transition-colors disabled:opacity-70"
                 >
-                  {submitting ? 'Processing...' : 'Save & Print'}
+                  {submitting ? 'Processing...' : 'Confirm '}
                 </button>
               </form>
             </div>

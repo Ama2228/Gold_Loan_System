@@ -1,7 +1,7 @@
 const express = require('express');
 const { authenticate: protect } = require('../../middleware/auth');
 const { authorize: requireRole } = require('../../middleware/auth');
-const { getBranches, createBranch, updateBranch, getBranchOpeningHours, updateBranchOpeningHours, getOccupations, createOccupation, updateOccupation, deleteOccupation, getPawningPeriods, createPawningPeriod, updatePawningPeriod, getTimeSlots, updateTimeSlot, generateDefaultTimeSlots, getKaratAdvanceRates, updateKaratAdvanceRate, getSystemSettings, updateSystemSetting } = require('../controllers/admin.controller');
+const { getDashboard, getBranches, createBranch, updateBranch, getBranchOpeningHours, updateBranchOpeningHours, getOccupations, createOccupation, updateOccupation, deleteOccupation, getPawningPeriods, createPawningPeriod, updatePawningPeriod, getTimeSlots, updateTimeSlot, generateDefaultTimeSlots, getKaratAdvanceRates, updateKaratAdvanceRate, getSystemSettings, updateSystemSetting } = require('../controllers/admin.controller');
 const { getStaff, createStaff, updateStaff, toggleStaffStatus } = require('../controllers/adminStaff.controller');
 
 const router = express.Router();
@@ -9,6 +9,11 @@ const router = express.Router();
 // Apply protect and ADMIN role requirement to all routes
 router.use(protect);
 router.use(requireRole('ADMIN'));
+
+// @route   GET /dashboard
+// @desc    Get admin dashboard overview
+// @access  Private/Admin
+router.get('/dashboard', getDashboard);
 
 // @route   GET /branches
 // @desc    Get all branches

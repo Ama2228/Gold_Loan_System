@@ -365,6 +365,14 @@ const updateCustomerProfile = async (req, res) => {
     }
     const current = profileResult.data;
     const { fullName, email, mobileNumber, addressLine1, addressLine2, city } = req.body;
+
+    if (fullName !== undefined || email !== undefined) {
+      return res.status(400).json({
+        success: false,
+        message: 'Only mobile number and address fields can be updated from the customer portal'
+      });
+    }
+
     const result = await customerService.updateCustomer(customerId, {
       fullName: fullName ?? current.full_name,
       email: email ?? current.email ?? '',
@@ -418,16 +426,15 @@ const getCustomerAppointments = async (req, res) => {
 const createCustomerAppointment = async (req, res) => {
   try {
     const customerId = req.user.user_id;
-    const { ticket_id, branch_id, purpose, appointment_date, time_slot_start, time_slot_end } = req.body;
-    if (!ticket_id || !branch_id || !purpose || !appointment_date) {
+    const { ticket_id, purpose, appointment_date, time_slot_start, time_slot_end } = req.body;
+    if (!ticket_id || !purpose || !appointment_date) {
       return res.status(400).json({
         success: false,
-        message: 'ticket_id, branch_id, purpose, and appointment_date are required'
+        message: 'ticket_id, purpose, and appointment_date are required'
       });
     }
     const result = await customerAppointmentsService.createCustomerAppointment(customerId, {
       ticket_id,
-      branch_id,
       purpose,
       appointment_date,
       time_slot_start: time_slot_start || '09:00:00',
@@ -446,6 +453,47 @@ const createCustomerAppointment = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Failed to create appointment',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Cancel customer appointment
+// @route   PATCH /api/customer/appointments/:appointmentId/cancel
+// @access  Private (Customer only)
+const cancelCustomerAppointment = async (req, res) => {
+  try {
+    const customerId = req.user.user_id;
+    const appointmentId = parseInt(req.params.appointmentId, 10);
+
+    if (!appointmentId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Valid appointmentId is required'
+      });
+    }
+
+    const result = await customerAppointmentsService.cancelCustomerAppointment(customerId, appointmentId);
+
+    return res.json({
+      success: true,
+      message: result.message,
+      data: result
+    });
+  } catch (error) {
+    console.error('Cancel appointment error:', error.message);
+
+    if (
+      error.message?.includes('not found') ||
+      error.message?.includes('booked appointments') ||
+      error.message?.includes('day before')
+    ) {
+      return res.status(400).json({ success: false, message: error.message });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to cancel appointment',
       error: error.message
     });
   }
@@ -605,6 +653,7 @@ module.exports = {
   updateCustomerProfile,
   getCustomerAppointments,
   createCustomerAppointment,
+  cancelCustomerAppointment,
   getSlotAvailability,
   getCustomerBranches,
   getCustomerNotifications,

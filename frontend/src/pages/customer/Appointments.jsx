@@ -20,11 +20,23 @@ function generateTimeSlots(startHour = 9, endHour = 14, intervalMinutes = 30) {
   return slots
 }
 
+function getDayOfWeek(dateStr) {
+  if (!dateStr) return null
+  const d = new Date(`${String(dateStr).slice(0, 10)}T00:00:00`)
+  return Number.isNaN(d.getTime()) ? null : d.getDay()
+}
+
 function getStatusLabel(status) {
   if (status === 'PENDING' || status === 'APPROVED') return 'Booked'
   if (status === 'COMPLETED') return 'Completed'
   if (status === 'CANCELLED') return 'Cancelled'
   return status || '—'
+}
+
+function extractBranchCodeFromReceipt(receiptNo) {
+  const text = String(receiptNo || '')
+  const match = text.match(/(\d{4})/)
+  return match ? match[1] : ''
 }
 
 export default function Appointments() {
@@ -35,6 +47,7 @@ export default function Appointments() {
   const [branches, setBranches] = useState([])
   const [loading, setLoading] = useState(true)
   const [submitError, setSubmitError] = useState(null)
+  const [cancelLoadingId, setCancelLoadingId] = useState(null)
 
   const [slotsLoading, setSlotsLoading] = useState(false)
   const [slotsForDate, setSlotsForDate] = useState([])
@@ -56,7 +69,8 @@ export default function Appointments() {
         })))
         setBranches((branchesRes.data || []).map(b => ({
           id: b.branch_id,
-          name: b.branch_name
+          name: b.branch_name,
+          code: String(b.branch_code || '')
         })))
       } catch (err) {
         console.error('Load appointments error:', err)
@@ -70,7 +84,6 @@ export default function Appointments() {
   // Form state
   const [purpose, setPurpose] = useState('')
   const [ticketId, setTicketId] = useState('')
-  const [branchId, setBranchId] = useState('')
   const [appointmentDate, setAppointmentDate] = useState('')
   const [selectedTimeSlot, setSelectedTimeSlot] = useState('')
   const [notes, setNotes] = useState('')
@@ -80,27 +93,41 @@ export default function Appointments() {
   const [statusFilter, setStatusFilter] = useState('All')
   const [dateRangeFilter, setDateRangeFilter] = useState('Upcoming')
 
-  useEffect(() => {
-    if (branches.length > 0 && !branchId) setBranchId(String(branches[0].id))
-  }, [branches])
+  const selectedReceipt = activeReceipts.find(r => String(r.ticket_id) === String(ticketId)) || null
+  const selectedReceiptBranchCode = extractBranchCodeFromReceipt(selectedReceipt?.receipt_no)
+  const selectedBranch = branches.find(b => b.code === selectedReceiptBranchCode) || null
+  const selectedBranchId = selectedBranch ? String(selectedBranch.id) : ''
+  const selectedDateDay = getDayOfWeek(appointmentDate)
+  const isSunday = selectedDateDay === 0
+  const isSaturday = selectedDateDay === 6
 
   // Fetch slot availability when branch and date are selected
   useEffect(() => {
-    if (!branchId || !appointmentDate) {
+    if (!selectedBranchId || !appointmentDate) {
       setSlotsForDate([])
       return
     }
     setSlotsLoading(true)
     setSelectedTimeSlot('')
-    api.getCustomerSlotAvailability(branchId, appointmentDate)
+    api.getCustomerSlotAvailability(selectedBranchId, appointmentDate)
       .then((res) => {
         setSlotsForDate(res.data || [])
       })
       .catch(() => setSlotsForDate([]))
       .finally(() => setSlotsLoading(false))
-  }, [branchId, appointmentDate])
+  }, [selectedBranchId, appointmentDate])
 
-  const timeSlots = slotsForDate.length > 0 ? slotsForDate : generateTimeSlots().map((s) => ({ ...s, used: 0, capacity: 5 }))
+  const fallbackSlots = isSunday
+    ? []
+    : generateTimeSlots(9, isSaturday ? 12 : 14).map((s) => ({ ...s, used: 0, capacity: 5 }))
+
+  const rawTimeSlots = slotsForDate.length > 0 ? slotsForDate : fallbackSlots
+  const timeSlots = isSaturday
+    ? rawTimeSlots.filter((slot) => {
+        const end = String(slot.slot_end ?? slot.end ?? '').slice(0, 5)
+        return end <= '12:00'
+      })
+    : rawTimeSlots
 
   const filteredAppointments = appointments.filter(apt => {
     const statusMatch = statusFilter === 'All' || apt.status === statusFilter
@@ -113,13 +140,60 @@ export default function Appointments() {
     return statusMatch && dateMatch
   })
 
+  const canCancelAppointment = (apt) => {
+    const status = String(apt.status || '')
+    if (status !== 'PENDING' && status !== 'APPROVED') return false
+
+    const apptDate = new Date(`${String(apt.appointment_date || apt.date).slice(0, 10)}T00:00:00`)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    return apptDate > today
+  }
+
+  const handleCancelAppointment = async (appointmentId) => {
+    if (!appointmentId) return
+    const confirmed = window.confirm('Cancel this appointment? You can only cancel until the day before the appointment date.')
+    if (!confirmed) return
+
+    setSubmitError(null)
+    setCancelLoadingId(appointmentId)
+    try {
+      await api.cancelCustomerAppointment(appointmentId)
+      const apptRes = await api.getCustomerAppointments()
+      setAppointments(apptRes.data || [])
+    } catch (err) {
+      setSubmitError(err.message || 'Failed to cancel appointment')
+    } finally {
+      setCancelLoadingId(null)
+    }
+  }
+
   const validateForm = () => {
     const errors = {}
     if (!purpose) errors.purpose = 'Please select a purpose'
     if (!ticketId) errors.ticketId = 'Please select a receipt'
-    if (!branchId) errors.branch = 'Please select a branch'
+    if (ticketId) {
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      const hasUpcomingForSameReceipt = appointments.some((apt) => {
+        const sameTicket = String(apt.ticket_id || '') === String(ticketId)
+        const booked = apt.status === 'PENDING' || apt.status === 'APPROVED'
+        const apptDate = new Date(`${String(apt.appointment_date || apt.date).slice(0, 10)}T00:00:00`)
+        return sameTicket && booked && apptDate >= today
+      })
+
+      if (hasUpcomingForSameReceipt) {
+        errors.ticketId = 'This receipt already has an upcoming appointment. You can create a new one only after that date passes.'
+      }
+    }
+    if (!selectedBranchId) errors.branch = 'Branch could not be determined from receipt'
     if (!appointmentDate) errors.appointmentDate = 'Please select a date'
     else {
+      const selectedDay = getDayOfWeek(appointmentDate)
+      if (selectedDay === 0) {
+        errors.appointmentDate = 'Appointments are not available on Sundays'
+      }
       const tomorrow = new Date()
       tomorrow.setDate(tomorrow.getDate() + 1)
       const minDate = tomorrow.toISOString().split('T')[0]
@@ -146,7 +220,6 @@ export default function Appointments() {
     try {
       await api.createCustomerAppointment({
         ticket_id: parseInt(ticketId, 10),
-        branch_id: parseInt(branchId, 10),
         purpose: purpose.toUpperCase(),
         appointment_date: appointmentDate,
         time_slot_start,
@@ -157,7 +230,6 @@ export default function Appointments() {
       setShowSuccess(true)
       setPurpose('')
       setTicketId('')
-        setBranchId(branches.length > 0 ? String(branches[0].id) : '')
       setAppointmentDate('')
       setSelectedTimeSlot('')
       setNotes('')
@@ -171,7 +243,7 @@ export default function Appointments() {
   const isFormValid =
     purpose &&
     ticketId &&
-    branchId &&
+    selectedBranchId &&
     appointmentDate &&
     selectedTimeSlot &&
     Object.keys(validateForm()).length === 0
@@ -254,6 +326,7 @@ export default function Appointments() {
                         <th className="text-left py-2 px-2 font-bold text-gray-900">Purpose</th>
                         <th className="text-left py-2 px-2 font-bold text-gray-900">Branch</th>
                         <th className="text-left py-2 px-2 font-bold text-gray-900">Status</th>
+                        <th className="text-left py-2 px-2 font-bold text-gray-900">Action</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -286,6 +359,24 @@ export default function Appointments() {
                             >
                               {getStatusLabel(apt.status)}
                             </span>
+                          </td>
+                          <td className="py-3 px-2">
+                            {canCancelAppointment(apt) ? (
+                              <button
+                                type="button"
+                                onClick={() => handleCancelAppointment(apt.appointment_id || apt.id)}
+                                disabled={cancelLoadingId === (apt.appointment_id || apt.id)}
+                                className={`rounded px-2 py-1 text-xs font-semibold ${
+                                  cancelLoadingId === (apt.appointment_id || apt.id)
+                                    ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                                    : 'bg-red-100 text-red-700 hover:bg-red-200'
+                                }`}
+                              >
+                                {cancelLoadingId === (apt.appointment_id || apt.id) ? 'Cancelling...' : 'Cancel'}
+                              </button>
+                            ) : (
+                              <span className="text-xs text-gray-400">-</span>
+                            )}
                           </td>
                         </tr>
                       ))}
@@ -373,25 +464,21 @@ export default function Appointments() {
                   )}
                 </div>
 
-                {/* Branch */}
+                {/* Branch (from selected receipt) */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Branch <span className="text-red-500">*</span>
+                    Branch
                   </label>
-                  <select
-                    value={branchId}
-                    onChange={(e) => {
-                      setBranchId(e.target.value)
-                      setFormErrors({ ...formErrors, branch: '' })
-                    }}
-                    className="w-full rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-yellow-500"
-                  >
-                    {branches.map((b) => (
-                      <option key={b.id} value={b.id}>
-                        {b.name}
-                      </option>
-                    ))}
-                  </select>
+                  <input
+                    type="text"
+                    value={selectedBranch ? `${selectedBranch.name} (${selectedBranch.code})` : ''}
+                    readOnly
+                    placeholder="Select a receipt to auto-select branch"
+                    className="w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-2 text-sm text-gray-900"
+                  />
+                  {selectedReceiptBranchCode && !selectedBranch && (
+                    <p className="text-xs text-amber-700 mt-1">No active branch found for code {selectedReceiptBranchCode}</p>
+                  )}
                   {formErrors.branch && (
                     <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
                       <AlertCircle className="h-3 w-3" />
@@ -411,9 +498,14 @@ export default function Appointments() {
                       type="date"
                       value={appointmentDate}
                       onChange={(e) => {
-                        setAppointmentDate(e.target.value)
+                        const nextDate = e.target.value
+                        const nextDay = getDayOfWeek(nextDate)
+                        setAppointmentDate(nextDate)
                         setSelectedTimeSlot('')
-                        setFormErrors({ ...formErrors, appointmentDate: '' })
+                        setFormErrors({
+                          ...formErrors,
+                          appointmentDate: nextDay === 0 ? 'Appointments are not available on Sundays' : ''
+                        })
                       }}
                       min={(() => { const d = new Date(); d.setDate(d.getDate() + 1); return d.toISOString().split('T')[0]; })()}
                       className="w-full rounded-lg border border-gray-200 pl-10 pr-4 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-yellow-500"
@@ -425,7 +517,7 @@ export default function Appointments() {
                       {formErrors.appointmentDate}
                     </p>
                   )}
-                  <p className="text-xs text-gray-500 mt-1">Appointments cannot be scheduled for today</p>
+                  <p className="text-xs text-gray-500 mt-1">Appointments are not available on Sundays. Saturday slots are available only up to 12:00.</p>
                 </div>
 
                 {/* Time Slots */}
@@ -435,8 +527,12 @@ export default function Appointments() {
                   </label>
                   {appointmentDate ? (
                     <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto">
-                      {slotsLoading ? (
+                      {isSunday ? (
+                        <p className="col-span-2 text-sm text-red-600 py-4">Appointments are not available on Sundays.</p>
+                      ) : slotsLoading ? (
                         <p className="col-span-2 text-sm text-gray-600 py-4">Loading slots...</p>
+                      ) : timeSlots.length === 0 ? (
+                        <p className="col-span-2 text-sm text-gray-600 py-4">No slots available for the selected date.</p>
                       ) : (
                         timeSlots.map((slot) => {
                           const used = slot.used ?? 0

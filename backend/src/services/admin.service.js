@@ -754,24 +754,40 @@ const updateKaratAdvanceRate = async (data) => {
     // Start transaction
     await connection.beginTransaction();
 
-    // Step 1: Deactivate existing active rate for this karat
-    await connection.query(
-      `UPDATE karat_advance_rates SET is_active = 0 WHERE karat = ? AND is_active = 1`,
-      [karat]
+    // Step 1: Prefer in-place update of an active row to avoid uq_karat_active collisions.
+    const [updateActive] = await connection.query(
+      `UPDATE karat_advance_rates
+       SET advance_value_per_gram = ?, effective_from = CURDATE(), updated_by_staff_id = ?, is_active = 1
+       WHERE karat = ? AND is_active = 1`,
+      [advance_value_per_gram, updated_by_staff_id, karat]
     );
 
-    // Step 2: Insert new active rate
-    const [result] = await connection.query(
-      `INSERT INTO karat_advance_rates (karat, advance_value_per_gram, effective_from, is_active, updated_by_staff_id)
-       VALUES (?, ?, CURDATE(), 1, ?)`,
-      [karat, advance_value_per_gram, updated_by_staff_id]
-    );
+    // Step 2: If no active row exists, reactivate the latest row for the karat.
+    if (updateActive.affectedRows === 0) {
+      const [updateAny] = await connection.query(
+        `UPDATE karat_advance_rates
+         SET advance_value_per_gram = ?, effective_from = CURDATE(), updated_by_staff_id = ?, is_active = 1
+         WHERE karat = ?
+         ORDER BY rate_id DESC
+         LIMIT 1`,
+        [advance_value_per_gram, updated_by_staff_id, karat]
+      );
+
+      // Step 3: If karat has no row yet, insert a fresh active row.
+      if (updateAny.affectedRows === 0) {
+        await connection.query(
+          `INSERT INTO karat_advance_rates (karat, advance_value_per_gram, effective_from, is_active, updated_by_staff_id)
+           VALUES (?, ?, CURDATE(), 1, ?)`,
+          [karat, advance_value_per_gram, updated_by_staff_id]
+        );
+      }
+    }
 
     // Commit transaction
     await connection.commit();
     connection.release();
 
-    // Step 3: Fetch and return the new active rate
+    // Step 4: Fetch and return the new active rate
     const [newRate] = await pool.query(
       `SELECT karat, advance_value_per_gram, effective_from
        FROM karat_advance_rates
@@ -820,6 +836,37 @@ const getSystemSettings = async () => {
   }
 };
 
+// @desc    Get one system setting by key
+// @param   key - Setting key
+// @returns Setting row or NOT_FOUND status
+const getSystemSettingByKey = async (key) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT setting_key, setting_value, description, updated_at
+       FROM system_settings
+       WHERE setting_key = ?
+       LIMIT 1`,
+      [key]
+    );
+
+    if (rows.length === 0) {
+      return {
+        success: false,
+        message: 'System setting not found',
+        code: 'NOT_FOUND'
+      };
+    }
+
+    return {
+      success: true,
+      data: rows[0]
+    };
+  } catch (error) {
+    console.error('❌ getSystemSettingByKey error:', error);
+    throw error;
+  }
+};
+
 // @desc    Update a system setting
 // @param   key - Setting key
 // @param   value - New setting value
@@ -862,6 +909,99 @@ const updateSystemSetting = async (key, value, updatedByStaffId = null) => {
   }
 };
 
+// @desc    Get admin dashboard overview
+// @returns System-wide summary for the admin dashboard
+const getDashboardOverview = async () => {
+  try {
+    const [[branchRow]] = await pool.query('SELECT COUNT(*) AS totalBranches FROM branches');
+    const [[staffRow]] = await pool.query('SELECT COUNT(*) AS totalStaff FROM staff_profiles');
+    const [[customerRow]] = await pool.query('SELECT COUNT(*) AS totalCustomers FROM customer_profiles');
+    const [[ticketRow]] = await pool.query(`
+      SELECT
+        COALESCE(SUM(CASE WHEN status IN ('ACTIVE','RENEWED') THEN 1 ELSE 0 END), 0) AS activeTickets,
+        COALESCE(SUM(CASE WHEN status = 'OVERDUE' THEN 1 ELSE 0 END), 0) AS overdueTickets,
+        COALESCE(SUM(CASE WHEN status = 'OVERDUE' AND DATEDIFF(CURDATE(), due_date) >= 30 THEN 1 ELSE 0 END), 0) AS auctionCandidates,
+        COALESCE(SUM(CASE WHEN status IN ('ACTIVE','RENEWED','OVERDUE') THEN loan_amount ELSE 0 END), 0) AS portfolioValue
+      FROM pawn_tickets
+    `);
+    const [[reverseRow]] = await pool.query(
+      `SELECT COUNT(*) AS pendingReversePawning FROM reverse_pawning_requests WHERE status = 'PENDING'`
+    );
+    const [[smsRow]] = await pool.query(
+      `SELECT COUNT(*) AS smsFailed FROM sms_reminder_logs WHERE status = 'FAILED'`
+    );
+    const [[closedRow]] = await pool.query(
+      `SELECT COUNT(*) AS branchClosedToday FROM branches WHERE status = 'INACTIVE'`
+    );
+    const [[rateRow]] = await pool.query(
+      `SELECT setting_value FROM system_settings WHERE setting_key = 'ANNUAL_INTEREST_RATE' LIMIT 1`
+    );
+
+    const [branchActivity] = await pool.query(
+      `SELECT
+         b.branch_code AS branchCode,
+         b.branch_name AS branchName,
+         COALESCE(COUNT(DISTINCT CASE WHEN DATE(t.issue_date) = CURDATE() THEN t.ticket_id END), 0) AS newTickets,
+         COALESCE(COUNT(DISTINCT CASE WHEN DATE(p.payment_date) = CURDATE() THEN p.payment_id END), 0) AS payments,
+         COALESCE(COUNT(DISTINCT CASE WHEN t.status = 'OVERDUE' THEN t.ticket_id END), 0) AS overdue
+       FROM branches b
+       LEFT JOIN pawn_tickets t ON t.branch_id = b.branch_id
+       LEFT JOIN payments p ON p.branch_id = b.branch_id
+       GROUP BY b.branch_id, b.branch_code, b.branch_name
+       ORDER BY newTickets DESC, payments DESC, overdue DESC
+       LIMIT 5`
+    );
+
+    const [overdueList] = await pool.query(
+      `SELECT
+         pt.receipt_no AS receiptNo,
+         b.branch_name AS branchName,
+         DATE(pt.due_date) AS dueDate,
+         DATEDIFF(CURDATE(), pt.due_date) AS daysOverdue
+       FROM pawn_tickets pt
+       JOIN branches b ON pt.branch_id = b.branch_id
+       WHERE pt.status = 'OVERDUE'
+       ORDER BY daysOverdue DESC, pt.due_date ASC
+       LIMIT 5`
+    );
+
+    return {
+      success: true,
+      data: {
+        summary: {
+          totalBranches: Number(branchRow.totalBranches || 0),
+          totalStaff: Number(staffRow.totalStaff || 0),
+          totalCustomers: Number(customerRow.totalCustomers || 0),
+          activeTickets: Number(ticketRow.activeTickets || 0),
+          overdueTickets: Number(ticketRow.overdueTickets || 0),
+          auctionCandidates: Number(ticketRow.auctionCandidates || 0),
+          portfolioValue: Number(ticketRow.portfolioValue || 0),
+          pendingReversePawning: Number(reverseRow.pendingReversePawning || 0),
+          smsFailed: Number(smsRow.smsFailed || 0),
+          branchClosedToday: Number(closedRow.branchClosedToday || 0),
+          annualInterestRate: Number(rateRow?.setting_value || 0)
+        },
+        branchActivity: branchActivity.map((row) => ({
+          branchCode: row.branchCode,
+          branchName: row.branchName,
+          newTickets: Number(row.newTickets || 0),
+          payments: Number(row.payments || 0),
+          overdue: Number(row.overdue || 0)
+        })),
+        overdueList: overdueList.map((row) => ({
+          receiptNo: row.receiptNo,
+          branchName: row.branchName,
+          dueDate: row.dueDate,
+          daysOverdue: Number(row.daysOverdue || 0)
+        }))
+      }
+    };
+  } catch (error) {
+    console.error('❌ getDashboardOverview error:', error);
+    throw error;
+  }
+};
+
 module.exports = {
   getBranches,
   createBranch,
@@ -881,5 +1021,7 @@ module.exports = {
   getKaratAdvanceRates,
   updateKaratAdvanceRate,
   getSystemSettings,
-  updateSystemSetting
+  getSystemSettingByKey,
+  updateSystemSetting,
+  getDashboardOverview
 };

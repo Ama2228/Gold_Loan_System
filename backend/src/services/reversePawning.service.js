@@ -42,8 +42,7 @@ async function listRequests(branchId) {
 }
 
 /**
- * Create reverse pawning record - manager performs directly (status APPROVED)
- * Archives the pawn ticket (sets status REVERSED) so it becomes invisible to users.
+ * Create reverse pawning request in PENDING status.
  * Only allowed on the same calendar day the ticket was issued.
  * @param {number} managerStaffId - Manager's staff_id (user_id)
  * @param {number} branchId - Manager's branch_id
@@ -92,21 +91,9 @@ async function createRequest(managerStaffId, branchId, { receiptNo, reason }) {
 
     const [result] = await connection.query(
       `INSERT INTO reverse_pawning_requests 
-       (ticket_id, branch_id, requested_by_staff_id, reason, status, approved_by_staff_id, approved_date)
-       VALUES (?, ?, ?, ?, 'APPROVED', ?, NOW())`,
-      [ticket.ticket_id, branchId, managerStaffId, trimmedReason, managerStaffId]
-    );
-
-    const oldStatus = ticket.status;
-    await connection.query(
-      `UPDATE pawn_tickets SET status = 'REVERSED' WHERE ticket_id = ?`,
-      [ticket.ticket_id]
-    );
-
-    await connection.query(
-      `INSERT INTO ticket_status_history (ticket_id, old_status, new_status, changed_by_staff_id, remark)
-       VALUES (?, ?, 'REVERSED', ?, 'Reverse pawning - archived')`,
-      [ticket.ticket_id, oldStatus, managerStaffId]
+       (ticket_id, branch_id, requested_by_staff_id, reason, status)
+       VALUES (?, ?, ?, ?, 'PENDING')`,
+      [ticket.ticket_id, branchId, managerStaffId, trimmedReason]
     );
 
     await connection.commit();
@@ -115,7 +102,72 @@ async function createRequest(managerStaffId, branchId, { receiptNo, reason }) {
       reverseId: result.insertId,
       ticketId: ticket.ticket_id,
       receiptNo: trimmedReceipt,
-      status: 'APPROVED'
+      status: 'PENDING'
+    };
+  } catch (err) {
+    await connection.rollback();
+    throw err;
+  } finally {
+    connection.release();
+  }
+}
+
+async function reviewRequest(managerStaffId, branchId, reverseId, decision) {
+  const normalizedDecision = String(decision || '').toUpperCase();
+  if (!['APPROVED', 'REJECTED'].includes(normalizedDecision)) {
+    throw new Error('Invalid reverse pawning decision');
+  }
+
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    const [requests] = await connection.query(
+      `SELECT r.reverse_id, r.ticket_id, r.branch_id, r.status, r.reason,
+              p.receipt_no, p.status as ticket_status
+       FROM reverse_pawning_requests r
+       JOIN pawn_tickets p ON r.ticket_id = p.ticket_id
+       WHERE r.reverse_id = ? AND r.branch_id = ?
+       FOR UPDATE`,
+      [reverseId, branchId]
+    );
+
+    if (requests.length === 0) {
+      throw new Error('Reverse pawning request not found');
+    }
+
+    const request = requests[0];
+    if (request.status !== 'PENDING') {
+      throw new Error('Reverse pawning request has already been reviewed');
+    }
+
+    await connection.query(
+      `UPDATE reverse_pawning_requests
+       SET status = ?, approved_by_staff_id = ?, approved_date = NOW()
+       WHERE reverse_id = ?`,
+      [normalizedDecision, managerStaffId, reverseId]
+    );
+
+    if (normalizedDecision === 'APPROVED') {
+      await connection.query(
+        `UPDATE pawn_tickets SET status = 'REVERSED' WHERE ticket_id = ?`,
+        [request.ticket_id]
+      );
+
+      await connection.query(
+        `INSERT INTO ticket_status_history (ticket_id, old_status, new_status, changed_by_staff_id, remark)
+         VALUES (?, ?, 'REVERSED', ?, 'Reverse pawning approved')`,
+        [request.ticket_id, request.ticket_status, managerStaffId]
+      );
+    }
+
+    await connection.commit();
+
+    return {
+      reverseId: request.reverse_id,
+      ticketId: request.ticket_id,
+      receiptNo: request.receipt_no,
+      status: normalizedDecision
     };
   } catch (err) {
     await connection.rollback();
@@ -127,5 +179,6 @@ async function createRequest(managerStaffId, branchId, { receiptNo, reason }) {
 
 module.exports = {
   listRequests,
-  createRequest
+  createRequest,
+  reviewRequest
 };

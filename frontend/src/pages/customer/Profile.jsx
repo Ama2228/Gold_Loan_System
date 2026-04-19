@@ -41,7 +41,7 @@ export default function Profile() {
   const [profileLoading, setProfileLoading] = useState(true)
   const [profileError, setProfileError] = useState(null)
   const [updateSuccess, setUpdateSuccess] = useState('')
-  const [editableFields, setEditableFields] = useState({ email: '', addressLine1: '', addressLine2: '', city: '' })
+  const [editableFields, setEditableFields] = useState({ addressLine1: '', addressLine2: '', city: '' })
 
   // Mobile change state
   const [newMobileNumber, setNewMobileNumber] = useState('')
@@ -87,7 +87,6 @@ export default function Profile() {
             status: d.status || 'Active'
           })
           setEditableFields({
-            email: d.email || '',
             addressLine1: d.address_line1 || '',
             addressLine2: d.address_line2 || '',
             city: d.city || ''
@@ -105,14 +104,12 @@ export default function Profile() {
   const handleSaveProfile = async () => {
     try {
       await api.updateCustomerProfile({
-        email: editableFields.email,
         addressLine1: editableFields.addressLine1,
         addressLine2: editableFields.addressLine2,
         city: editableFields.city
       })
       setProfile(prev => ({
         ...prev,
-        email: editableFields.email,
         address: [editableFields.addressLine1, editableFields.addressLine2, editableFields.city].filter(Boolean).join(', ') || '-'
       }))
       setUpdateSuccess('Profile updated successfully')
@@ -180,19 +177,25 @@ export default function Profile() {
     if (Object.keys(errors).length > 0) return
 
     if (mobileOtpCode === mobileOtpData.code) {
-      setProfile({ ...profile, mobile: newMobileNumber })
-      setMobileOtpVerified(true)
-      setMobileSuccess('Mobile number updated successfully.')
-      
-      // Reset after 2 seconds
-      setTimeout(() => {
-        setNewMobileNumber('')
-        setMobileOtpCode('')
-        setMobileOtpStep('input')
-        setMobileOtpData({ code: '', expiresAt: null, resendCount: 0 })
-        setMobileOtpVerified(null)
-        setMobileSuccess('')
-      }, 2000)
+      api.updateCustomerProfile({ mobileNumber: newMobileNumber })
+        .then(() => {
+          setProfile((prev) => ({ ...prev, mobile: newMobileNumber }))
+          setMobileOtpVerified(true)
+          setMobileSuccess('Mobile number updated successfully.')
+
+          // Reset after 2 seconds
+          setTimeout(() => {
+            setNewMobileNumber('')
+            setMobileOtpCode('')
+            setMobileOtpStep('input')
+            setMobileOtpData({ code: '', expiresAt: null, resendCount: 0 })
+            setMobileOtpVerified(null)
+            setMobileSuccess('')
+          }, 2000)
+        })
+        .catch((err) => {
+          setMobileErrors({ mobileOtpCode: err.message || 'Failed to update mobile number' })
+        })
     } else {
       setMobileErrors({ mobileOtpCode: 'Invalid OTP' })
     }
@@ -351,7 +354,7 @@ export default function Profile() {
                 {/* Note */}
                 <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
                   <p className="text-xs text-yellow-700">
-                    <strong>Note:</strong> NIC cannot be changed. Use the Update Profile section to change email and address.
+                    <strong>Note:</strong> NIC cannot be changed. Use the Update Profile section to change your address, and the mobile panel for phone updates.
                   </p>
                 </div>
               </div>
@@ -359,7 +362,7 @@ export default function Profile() {
 
             {/* Right Column: Actions */}
             <div className="space-y-6">
-              {/* Card 0: Update Profile (email, address) */}
+              {/* Card 0: Update Profile (address only) */}
               <div className="rounded-lg bg-white shadow-sm border border-gray-200 p-6">
                 <h3 className="text-lg font-bold text-gray-900 mb-4">Update Profile</h3>
                 {updateSuccess && (
@@ -369,16 +372,6 @@ export default function Profile() {
                   </div>
                 )}
                 <div className="space-y-3">
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Email</label>
-                    <input
-                      type="email"
-                      value={editableFields.email}
-                      onChange={(e) => setEditableFields(prev => ({ ...prev, email: e.target.value }))}
-                      placeholder="your@email.com"
-                      className="w-full rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-yellow-500"
-                    />
-                  </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Address Line 1</label>
                     <input

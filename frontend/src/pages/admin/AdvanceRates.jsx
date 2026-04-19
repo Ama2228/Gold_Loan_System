@@ -16,7 +16,7 @@ export default function AdvanceRates() {
   const [valueError, setValueError] = useState('')
   const [updating, setUpdating] = useState(false)
 
-  const KARATS = [18, 20, 22]
+  const KARATS = [18, 20, 22, 24]
 
   // Role guard
   if (userRole !== 'ADMIN') {
@@ -67,7 +67,7 @@ export default function AdvanceRates() {
           })
         }
 
-        // Build complete list with all karats (18, 20, 22)
+        // Build complete list with all karats (18, 20, 22, 24)
         const completeRates = KARATS.map(karat => {
           if (ratesMap[karat]) {
             return ratesMap[karat]
@@ -136,7 +136,7 @@ export default function AdvanceRates() {
     }
 
     if (!KARATS.includes(selectedKarat)) {
-      setError('Invalid karat value. Must be 18, 20, or 22')
+      setError('Invalid karat value. Must be 18, 20, 22, or 24')
       return
     }
 

@@ -4,6 +4,8 @@ import { Search, CreditCard, AlertCircle, CheckCircle } from 'lucide-react'
 import api from '../../services/api'
 import CustomerHeader from '../../components/CustomerHeader'
 
+const formatDateOnly = (value) => (value ? String(value).slice(0, 10) : '')
+
 export default function PartPayments() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -186,7 +188,7 @@ export default function PartPayments() {
                           </div>
                           <div>
                             <p className="text-gray-600">Due Date</p>
-                            <p className="font-semibold text-gray-900">{r.due_date}</p>
+                            <p className="font-semibold text-gray-900">{formatDateOnly(r.due_date)}</p>
                           </div>
                         </div>
                       </button>
@@ -226,7 +228,7 @@ export default function PartPayments() {
                         </div>
                         <div>
                           <p className="text-gray-600">Due Date</p>
-                          <p className="font-semibold text-gray-900">{selectedReceipt.due_date}</p>
+                          <p className="font-semibold text-gray-900">{formatDateOnly(selectedReceipt.due_date)}</p>
                         </div>
                         <div>
                           <p className="text-gray-600">Status</p>

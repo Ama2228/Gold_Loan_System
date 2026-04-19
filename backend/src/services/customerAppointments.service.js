@@ -5,6 +5,12 @@
 
 const { pool } = require('../../config/database');
 
+function extractBranchCodeFromReceipt(receiptNo) {
+  const text = String(receiptNo || '');
+  const match = text.match(/(\d{4})/);
+  return match ? match[1] : '';
+}
+
 async function getCustomerAppointments(customerId) {
   const [rows] = await pool.query(
     `SELECT 
@@ -42,16 +48,35 @@ async function getCustomerAppointments(customerId) {
   }));
 }
 
-async function createCustomerAppointment(customerId, { ticket_id, branch_id, purpose, appointment_date, time_slot_start, time_slot_end }) {
+async function createCustomerAppointment(customerId, { ticket_id, purpose, appointment_date, time_slot_start, time_slot_end }) {
   const conn = await pool.getConnection();
   try {
     const [ticketRows] = await conn.query(
-      `SELECT ticket_id FROM pawn_tickets 
+      `SELECT ticket_id, branch_id, receipt_no FROM pawn_tickets 
        WHERE ticket_id = ? AND customer_id = ? AND status IN ('ACTIVE', 'RENEWED', 'OVERDUE')`,
       [ticket_id, customerId]
     );
     if (ticketRows.length === 0) {
       throw new Error('Ticket not found or not eligible for appointment');
+    }
+
+    const ticket = ticketRows[0];
+    const branch_id = ticket.branch_id;
+
+    const [existingUpcomingRows] = await conn.query(
+      `SELECT appointment_id, appointment_date
+       FROM appointments
+       WHERE customer_id = ?
+         AND ticket_id = ?
+         AND status IN ('PENDING', 'APPROVED')
+         AND appointment_date >= CURDATE()
+       ORDER BY appointment_date ASC
+       LIMIT 1`,
+      [customerId, ticket_id]
+    );
+
+    if (existingUpcomingRows.length > 0) {
+      throw new Error('An upcoming appointment already exists for this receipt. You can create a new one only after that date passes.');
     }
 
     if (!['RENEW', 'REDEEM'].includes(purpose)) {
@@ -64,17 +89,34 @@ async function createCustomerAppointment(customerId, { ticket_id, branch_id, pur
       throw new Error('Appointments cannot be scheduled for today or a past date. Please select tomorrow or later.');
     }
 
+    const reqDate = new Date(`${reqDateStr}T00:00:00`);
+    const dayOfWeek = reqDate.getDay(); // 0=Sun, 6=Sat
+    if (dayOfWeek === 0) {
+      throw new Error('Appointments are not available on Sundays. Please select another day.');
+    }
+
     const [branchRows] = await conn.query(
-      'SELECT branch_id FROM branches WHERE branch_id = ? AND status = ?',
+      'SELECT branch_id, branch_code FROM branches WHERE branch_id = ? AND status = ?',
       [branch_id, 'ACTIVE']
     );
     if (branchRows.length === 0) {
       throw new Error('Branch not found');
     }
 
+    const derivedBranchCode = String(branchRows[0].branch_code || '');
+    const receiptPrefix = extractBranchCodeFromReceipt(ticket.receipt_no);
+    if (receiptPrefix && derivedBranchCode && receiptPrefix !== derivedBranchCode) {
+      throw new Error('Selected receipt does not match its branch code');
+    }
+
     const normalizeTime = (t) => (t && t.length === 5 ? t + ':00' : t || '09:00:00');
     const slotStart = normalizeTime(time_slot_start);
     const slotEnd = normalizeTime(time_slot_end);
+
+    if (dayOfWeek === 6 && slotEnd > '12:00:00') {
+      throw new Error('On Saturdays, appointment slots are available only up to 12:00.');
+    }
+
     const [slotRows] = await conn.query(
       'SELECT slot_id, capacity FROM time_slots WHERE slot_start = ? AND slot_end = ? AND is_active = 1 LIMIT 1',
       [slotStart, slotEnd]
@@ -111,6 +153,53 @@ async function createCustomerAppointment(customerId, { ticket_id, branch_id, pur
   }
 }
 
+async function cancelCustomerAppointment(customerId, appointmentId) {
+  const conn = await pool.getConnection();
+  try {
+    const [rows] = await conn.query(
+      `SELECT appointment_id, customer_id, status, appointment_date
+       FROM appointments
+       WHERE appointment_id = ? AND customer_id = ?
+       LIMIT 1`,
+      [appointmentId, customerId]
+    );
+
+    if (rows.length === 0) {
+      throw new Error('Appointment not found');
+    }
+
+    const appointment = rows[0];
+
+    if (!['PENDING', 'APPROVED'].includes(appointment.status)) {
+      throw new Error('Only booked appointments can be cancelled');
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const apptDate = new Date(String(appointment.appointment_date).slice(0, 10) + 'T00:00:00');
+
+    // Customer can cancel only until day before appointment date.
+    if (apptDate <= today) {
+      throw new Error('Appointment can only be cancelled until the day before the appointment date');
+    }
+
+    await conn.query(
+      `UPDATE appointments
+       SET status = 'CANCELLED'
+       WHERE appointment_id = ?`,
+      [appointmentId]
+    );
+
+    return {
+      success: true,
+      appointment_id: appointmentId,
+      message: 'Appointment cancelled successfully'
+    };
+  } finally {
+    conn.release();
+  }
+}
+
 async function getBranches() {
   const [rows] = await pool.query(
     `SELECT branch_id, branch_name, branch_code FROM branches WHERE status = 'ACTIVE' ORDER BY branch_name`
@@ -123,6 +212,14 @@ async function getBranches() {
  * Returns each time slot with capacity (from time_slots) and used count (appointments PENDING/APPROVED).
  */
 async function getSlotAvailability(branchId, date) {
+  const dateStr = String(date || '').slice(0, 10);
+  const reqDate = new Date(`${dateStr}T00:00:00`);
+  const dayOfWeek = reqDate.getDay(); // 0=Sun, 6=Sat
+
+  if (dayOfWeek === 0) {
+    return [];
+  }
+
   const [rows] = await pool.query(
     `SELECT 
       ts.slot_id,
@@ -143,7 +240,11 @@ async function getSlotAvailability(branchId, date) {
     [branchId, date]
   );
 
-  return rows.map((r) => ({
+  const filteredRows = dayOfWeek === 6
+    ? rows.filter((r) => String(r.slot_end || '').slice(0, 8) <= '12:00:00')
+    : rows;
+
+  return filteredRows.map((r) => ({
     slot_id: r.slot_id,
     slot_start: String(r.slot_start || '').slice(0, 5),
     slot_end: String(r.slot_end || '').slice(0, 5),
@@ -156,6 +257,7 @@ async function getSlotAvailability(branchId, date) {
 module.exports = {
   getCustomerAppointments,
   createCustomerAppointment,
+  cancelCustomerAppointment,
   getBranches,
   getSlotAvailability
 };

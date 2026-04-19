@@ -14,6 +14,8 @@ const staffCustomersRoutes = require('./src/routes/staffCustomers.routes');
 const staffAppointmentsRoutes = require('./src/routes/staffAppointments.routes');
 const pawnTicketsRoutes = require('./src/routes/pawnTickets.routes');
 const managerRoutes = require('./src/routes/manager.routes');
+const publicRoutes = require('./src/routes/public.routes');
+const automationService = require('./src/services/automation.service');
 const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
@@ -48,6 +50,7 @@ app.use(`${API_PREFIX}/staff/customers`, staffCustomersRoutes);
 app.use(`${API_PREFIX}/staff/appointments`, staffAppointmentsRoutes);
 app.use(`${API_PREFIX}/staff/pawn-tickets`, pawnTicketsRoutes);
 app.use(`${API_PREFIX}/manager`, managerRoutes);
+app.use(`${API_PREFIX}/public`, publicRoutes);
 
 // Health check route
 app.get(`${API_PREFIX}/health`, (req, res) => {
@@ -102,6 +105,8 @@ const startServer = async () => {
       console.log(`🔗 API Base URL: http://localhost:${PORT}${API_PREFIX}`);
       console.log(`🏥 Health Check: http://localhost:${PORT}${API_PREFIX}/health\n`);
     });
+
+    automationService.startAutomationScheduler();
   } catch (error) {
     console.error('❌ Failed to start server:', error);
     process.exit(1);

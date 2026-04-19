@@ -4,6 +4,7 @@ import api from '../../services/api'
 
 export default function ReversePawning() {
   const userRole = sessionStorage.getItem('userRole')
+  const isManager = userRole === 'MANAGER'
 
   const [formData, setFormData] = useState({
     receiptNo: '',
@@ -20,19 +21,9 @@ export default function ReversePawning() {
   const [history, setHistory] = useState([])
   const [historyLoading, setHistoryLoading] = useState(true)
   const [branchName, setBranchName] = useState('')
+  const [reviewingId, setReviewingId] = useState(null)
   const dropdownRef = useRef(null)
   const searchTimeoutRef = useRef(null)
-
-  // Role guard - only MANAGER can access
-  if (userRole !== 'MANAGER') {
-    return (
-      <div className="rounded-lg bg-red-50 border border-red-200 p-8 text-center">
-        <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-        <h2 className="text-2xl font-bold text-red-900 mb-2">Access Denied</h2>
-        <p className="text-red-700">Reverse Pawning is a manager-only feature. You do not have permission to access this page.</p>
-      </div>
-    )
-  }
 
   const loadHistory = async () => {
     setHistoryLoading(true)
@@ -50,8 +41,12 @@ export default function ReversePawning() {
   }
 
   useEffect(() => {
+    if (!isManager) {
+      return
+    }
+
     loadHistory()
-  }, [])
+  }, [isManager])
 
   useEffect(() => {
     if (searchQuery.trim().length < 2) {
@@ -85,6 +80,16 @@ export default function ReversePawning() {
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
+
+  if (!isManager) {
+    return (
+      <div className="rounded-lg bg-red-50 border border-red-200 p-8 text-center">
+        <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+        <h2 className="text-2xl font-bold text-red-900 mb-2">Access Denied</h2>
+        <p className="text-red-700">Reverse Pawning is a manager-only feature. You do not have permission to access this page.</p>
+      </div>
+    )
+  }
 
   const handleReceiptSelect = (ticket) => {
     setFormData(prev => ({ ...prev, receiptNo: ticket.receipt_no || ticket.receiptNo }))
@@ -135,6 +140,29 @@ export default function ReversePawning() {
       setFormErrors({ submit: err.message || 'Failed to create reverse pawning' })
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  const handleReview = async (record, decision) => {
+    if (!record?.id || reviewingId) return
+
+    setReviewingId(record.id)
+    setFormErrors({})
+
+    try {
+      if (decision === 'APPROVED') {
+        await api.approveManagerReversePawning(record.id)
+      } else {
+        await api.rejectManagerReversePawning(record.id)
+      }
+
+      setSuccessMessage(`Reverse pawning ${decision.toLowerCase()} successfully.`)
+      await loadHistory()
+      setTimeout(() => setSuccessMessage(''), 3000)
+    } catch (err) {
+      setFormErrors({ submit: err.message || 'Failed to review reverse pawning' })
+    } finally {
+      setReviewingId(null)
     }
   }
 
@@ -342,17 +370,39 @@ export default function ReversePawning() {
                     <td className="px-6 py-4 text-sm text-gray-700">{formatDateTime(record.dateTime)}</td>
                     <td className="px-6 py-4 text-sm text-gray-700">{record.reason}</td>
                     <td className="px-6 py-4 text-sm">
-                      <span
-                        className={`inline-block rounded-full px-3 py-1 text-xs font-bold ${
-                          record.status === 'APPROVED'
-                            ? 'bg-green-100 text-green-800'
-                            : record.status === 'REJECTED'
-                            ? 'bg-red-100 text-red-800'
-                            : 'bg-orange-100 text-orange-800'
-                        }`}
-                      >
-                        {record.status}
-                      </span>
+                      <div className="flex flex-col gap-2">
+                        <span
+                          className={`inline-block w-fit rounded-full px-3 py-1 text-xs font-bold ${
+                            record.status === 'APPROVED'
+                              ? 'bg-green-100 text-green-800'
+                              : record.status === 'REJECTED'
+                              ? 'bg-red-100 text-red-800'
+                              : 'bg-orange-100 text-orange-800'
+                          }`}
+                        >
+                          {record.status}
+                        </span>
+                        {record.status === 'PENDING' && (
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleReview(record, 'APPROVED')}
+                              disabled={reviewingId === record.id}
+                              className="rounded-md bg-green-600 px-3 py-1 text-xs font-semibold text-white hover:bg-green-700 disabled:opacity-50"
+                            >
+                              Approve
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleReview(record, 'REJECTED')}
+                              disabled={reviewingId === record.id}
+                              className="rounded-md bg-red-600 px-3 py-1 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+                            >
+                              Reject
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-700">{record.createdBy}</td>
                   </tr>

@@ -9,6 +9,8 @@ const PAYMENT_METHOD_MAP = {
   'Mobile Payment': 'ONLINE'
 }
 
+const formatDateOnly = (value) => (value ? String(value).slice(0, 10) : '')
+
 export default function PartPayment() {
   const [ticketNumber, setTicketNumber] = useState('')
   const [ticket, setTicket] = useState(null)
@@ -165,8 +167,8 @@ export default function PartPayment() {
                   </div>
                 </div>
                 <div className="grid gap-2 pt-2 border-t border-gray-200">
-                  <p className="text-xs text-gray-600"><span className="font-semibold">Issued Date:</span> {ticket.issue_date}</p>
-                  <p className="text-xs text-gray-600"><span className="font-semibold">Due Date:</span> {ticket.due_date}</p>
+                  <p className="text-xs text-gray-600"><span className="font-semibold">Issued Date:</span> {formatDateOnly(ticket.issue_date)}</p>
+                  <p className="text-xs text-gray-600"><span className="font-semibold">Due Date:</span> {formatDateOnly(ticket.due_date)}</p>
                   <p className="text-xs text-gray-600"><span className="font-semibold">Interest Rate:</span> {ticket.annual_interest_rate}% p.a.</p>
                   <p className="text-xs text-gray-600"><span className="font-semibold">Status:</span> {ticket.status}</p>
                 </div>
@@ -296,7 +298,7 @@ export default function PartPayment() {
                   <div key={payment.payment_id} className="flex justify-between items-center pb-2 border-b border-gray-100 last:border-0">
                     <div>
                       <p className="font-semibold text-gray-900">Rs. {payment.amount?.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
-                      <p className="text-xs text-gray-500">{new Date(payment.payment_date).toLocaleDateString()}</p>
+                      <p className="text-xs text-gray-500">{formatDateOnly(payment.payment_date)}</p>
                     </div>
                     <div className="text-right">
                       <p className="text-xs text-gray-600">{payment.payment_method}</p>
